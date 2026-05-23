@@ -39,7 +39,10 @@ const userService = {
 
   getAllPermissions: () => permissionRepository.findAll(),
 
-  updatePermission: async (role, module, { canRead, canWrite, canDelete }) => {
+  updatePermission: async (role, module, body) => {
+    const canRead   = Boolean(body.canRead);
+    const canWrite  = Boolean(body.canWrite);
+    const canDelete = Boolean(body.canDelete);
     return permissionRepository.upsert(role, module, { canRead, canWrite, canDelete });
   },
 };

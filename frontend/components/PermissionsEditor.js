@@ -10,18 +10,14 @@ const ACTIONS = [
   { key: 'canDelete', label: 'Delete' },
 ];
 
-export default function PermissionsEditor({ permissions = [], onUpdated }) {
+export default function PermissionsEditor({ permissions = [], onUpdated, canEdit = true }) {
   const [saving, setSaving]         = useState(null);
   const [localPerms, setLocalPerms] = useState([]);
   const [error, setError]           = useState('');
   const [successKey, setSuccessKey] = useState('');
 
-  // ── Sync local state whenever parent passes fresh permissions ──────────────
-  // This is the KEY fix: use useEffect to sync props → state
   useEffect(() => {
-    if (permissions && permissions.length > 0) {
-      setLocalPerms(permissions);
-    }
+    setLocalPerms(permissions || []);
   }, [permissions]);
 
   // Build lookup: "ROLE:MODULE" → permission object
@@ -32,36 +28,55 @@ export default function PermissionsEditor({ permissions = [], onUpdated }) {
     permMap[`${role}:${module}`]?.[action] ?? false;
 
   const handleToggle = async (role, module, action, currentVal) => {
-    // Admin is always full access — never editable
-    if (role === 'ADMIN') return;
+    if (role === 'ADMIN' || !canEdit) return;
 
     const key = `${role}:${module}:${action}`;
     setSaving(key);
     setError('');
 
-    // ── Optimistic update ────────────────────────────────────────────────────
     const newVal = !currentVal;
+
+    // Build payload from current local state (avoids stale closure from permMap)
+    const idx = localPerms.findIndex((p) => p.role === role && p.module === module);
+    const current = idx >= 0
+      ? localPerms[idx]
+      : { canRead: false, canWrite: false, canDelete: false };
+    const payload = {
+      canRead:   action === 'canRead'   ? newVal : Boolean(current.canRead),
+      canWrite:  action === 'canWrite'  ? newVal : Boolean(current.canWrite),
+      canDelete: action === 'canDelete' ? newVal : Boolean(current.canDelete),
+    };
+
+    // Optimistic update
     setLocalPerms((prev) => {
-      const idx = prev.findIndex((p) => p.role === role && p.module === module);
-      if (idx >= 0) {
+      const i = prev.findIndex((p) => p.role === role && p.module === module);
+      if (i >= 0) {
         const next = [...prev];
-        next[idx] = { ...next[idx], [action]: newVal };
+        next[i] = { ...next[i], ...payload };
         return next;
       }
-      return [...prev, { role, module, canRead: false, canWrite: false, canDelete: false, [action]: newVal }];
+      return [...prev, { role, module, ...payload }];
     });
 
     try {
-      // Build full updated permission (must send all 3 flags)
-      const current = permMap[`${role}:${module}`] || { canRead: false, canWrite: false, canDelete: false };
-      const payload  = { ...current, [action]: newVal };
-
       const res = await api.put(`/api/users/permissions/${role}/${module}`, payload);
 
-      // Flash success indicator
+      // Sync from server response (no full refetch — avoids toggle snap-back)
+      const saved = res.data.permission;
+      if (saved) {
+        setLocalPerms((prev) => {
+          const i = prev.findIndex((p) => p.role === role && p.module === module);
+          if (i >= 0) {
+            const next = [...prev];
+            next[i] = saved;
+            return next;
+          }
+          return [...prev, saved];
+        });
+      }
+
       setSuccessKey(key);
       setTimeout(() => setSuccessKey(''), 1200);
-
       onUpdated && onUpdated();
     } catch (err) {
       // Roll back optimistic update on failure
@@ -148,7 +163,7 @@ export default function PermissionsEditor({ permissions = [], onUpdated }) {
                           <input
                             type="checkbox"
                             checked={val}
-                            disabled={isAdmin || isSaving}
+                            disabled={isAdmin || isSaving || !canEdit}
                             onChange={() => handleToggle(role, module, action.key, val)}
                             id={`perm-${role}-${module}-${action.key}`}
                           />
@@ -165,8 +180,10 @@ export default function PermissionsEditor({ permissions = [], onUpdated }) {
       </div>
 
       <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-        💡 <strong>Admin</strong> permissions are locked (always full access). Toggle any other cell to save immediately.
-        Changes take effect on the next API request by that role.
+        💡 <strong>Admin</strong> permissions are locked (always full access).
+        {canEdit
+          ? ' Toggle any other cell to save immediately. Changes take effect on the next API request by that role.'
+          : ' Only admins can edit this matrix — you have read-only access.'}
       </div>
     </div>
   );

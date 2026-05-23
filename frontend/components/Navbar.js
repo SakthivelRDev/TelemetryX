@@ -5,26 +5,25 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard',      icon: '⬡', roles: ['ADMIN', 'ENGINEER', 'VIEWER'] },
-  { href: '/alarms',    label: 'Alarms',          icon: '🔔', roles: ['ADMIN', 'ENGINEER'] },
-  { href: '/map',       label: 'Network Map',     icon: '🗺', roles: ['ADMIN', 'ENGINEER', 'VIEWER'] },
-  { href: '/sources',   label: 'API Sources',     icon: '⚡', roles: ['ADMIN', 'ENGINEER'] },
-  { href: '/users',     label: 'User Management', icon: '👥', roles: ['ADMIN', 'ENGINEER'] }, // Engineers can view user list
+  { href: '/dashboard', label: 'Dashboard',      icon: '⬡', module: 'ALARM' },
+  { href: '/alarms',    label: 'Alarms',          icon: '🔔', module: 'ALARM' },
+  { href: '/map',       label: 'Network Map',     icon: '🗺', module: 'MAP'   },
+  { href: '/sources',   label: 'API Sources',     icon: '⚡', module: 'API'   },
+  { href: '/users',     label: 'User Management', icon: '👥', module: 'USER'  },
 ];
 
 export default function Navbar() {
   const pathname          = usePathname();
-  const { user, logout }  = useAuth();
+  const { user, logout, canAccess } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   if (!user) return null;
 
-  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
+  const visibleItems = NAV_ITEMS.filter((item) => canAccess(item.module, 'canRead'));
   const initials     = user.name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
   return (
     <nav className="navbar">
-      {/* Brand + Theme Toggle */}
       <div className="navbar-brand">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
@@ -42,7 +41,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Navigation Links */}
       <div className="nav-links">
         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 0.875rem', marginBottom: '0.5rem' }}>
           Navigation
@@ -60,7 +58,6 @@ export default function Navbar() {
         ))}
       </div>
 
-      {/* User Footer */}
       <div className="navbar-footer">
         <div className="user-info">
           <div className="user-avatar">{initials}</div>

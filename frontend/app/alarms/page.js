@@ -17,13 +17,21 @@ export default function AlarmsPage() {
   const [loading, setLoading]   = useState(true);
   const [severity, setSeverity] = useState('');
   const [status, setStatus]     = useState('');
+  const [networkLayer, setNetworkLayer] = useState('');
   const [page, setPage]         = useState(1);
   const siteId = searchParams.get('siteId') || '';
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 20, ...(severity && { severity }), ...(status && { status }), ...(siteId && { siteId }) });
+      const params = new URLSearchParams({
+        page,
+        limit: 20,
+        ...(severity && { severity }),
+        ...(status && { status }),
+        ...(siteId && { siteId }),
+        ...(networkLayer && { networkLayer }),
+      });
       const res = await api.get(`/api/alarms/correlated?${params}`);
       setEvents(res.data.events || []);
       setTotal(res.data.total || 0);
@@ -32,7 +40,7 @@ export default function AlarmsPage() {
     } finally {
       setLoading(false);
     }
-  }, [severity, status, siteId, page]);
+  }, [severity, status, siteId, networkLayer, page]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
@@ -47,7 +55,7 @@ export default function AlarmsPage() {
 
   return (
     <AppLayout>
-      <RoleGuard roles={['ADMIN', 'ENGINEER']}>
+      <RoleGuard module="ALARM" redirect>
       <div className="fade-in">
         <div className="page-header">
           <div className="flex-between">
@@ -66,6 +74,14 @@ export default function AlarmsPage() {
           </div>
         </div>
 
+        <div className="info-banner" style={{ marginBottom: '1rem' }}>
+          <strong>Correlation rules:</strong>{' '}
+          <em>Rule 1</em> groups alarms on the same site + device within 5 min ·{' '}
+          <em>Rule 2</em> flags site-wide impact when 2+ critical/medium devices fail within 10 min ·{' '}
+          <em>Rule 3</em> keeps standalone alarms separate.
+          {' '}<strong>Group key</strong> is the unique ID for each correlated group (site + device pattern).
+        </div>
+
         {/* Filters */}
         <div className="filters-bar">
           <select value={severity} onChange={(e) => { setSeverity(e.target.value); setPage(1); }} id="filter-severity">
@@ -74,7 +90,7 @@ export default function AlarmsPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} id="filter-status">
             {STATUSES.map((s) => <option key={s} value={s}>{s || 'All Statuses'}</option>)}
           </select>
-          <select id="filter-network-layer" onChange={(e) => { /* Network layer client-side filter */ }} defaultValue="">
+          <select value={networkLayer} onChange={(e) => { setNetworkLayer(e.target.value); setPage(1); }} id="filter-network-layer">
             {NETWORK_LAYERS.map((l) => <option key={l} value={l}>{l || 'All Layers'}</option>)}
           </select>
           {siteId && (
@@ -103,8 +119,9 @@ export default function AlarmsPage() {
                   <tr>
                     <th>Severity</th>
                     <th>Network Layer</th>
-                    <th>Group Key</th>
-                    <th>Correlation Rule</th>
+                    <th>Site</th>
+                    <th>Group / Correlation</th>
+                    <th>Rule</th>
                     <th>Alarms</th>
                     <th>Status</th>
                     <th>Start Time</th>
@@ -128,8 +145,12 @@ export default function AlarmsPage() {
                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
                         </td>
-                        <td className="mono" style={{ fontSize: '0.78rem', color: 'var(--accent-cyan)' }}>{e.groupKey}</td>
-                        <td style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{RULE_LABELS[e.correlationRule] || e.correlationRule}</td>
+                        <td style={{ fontSize: '0.78rem' }}>{e.siteName || '—'}</td>
+                        <td>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{e.groupKeyLabel || e.groupKey}</div>
+                          <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>{e.groupKey}</div>
+                        </td>
+                        <td style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }} title={e.correlationRule}>{RULE_LABELS[e.correlationRule] || e.correlationRule}</td>
                         <td style={{ color: 'var(--text-secondary)' }}>{e.alarmIds?.length || 0}</td>
                         <td><span className={`badge badge-${e.status?.toLowerCase()}`}>{e.status}</span></td>
                         <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(e.startTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</td>

@@ -109,7 +109,7 @@ export default function UsersPage() {
 
   return (
     <AppLayout>
-      <RoleGuard roles={['ADMIN', 'ENGINEER']}>
+      <RoleGuard module="USER" redirect>
       <div className="fade-in">
         <div className="page-header">
           <div className="flex-between">
@@ -207,7 +207,11 @@ export default function UsersPage() {
               Toggling a switch saves immediately to the database and takes effect for new requests by users of that role.
               Admin permissions are locked (always full access).
             </div>
-            <PermissionsEditor permissions={permissions} onUpdated={fetchData} />
+            <PermissionsEditor
+              permissions={permissions}
+              onUpdated={fetchData}
+              canEdit={isAdmin}
+            />
           </div>
 
         ) : (

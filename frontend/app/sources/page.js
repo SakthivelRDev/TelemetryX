@@ -70,7 +70,7 @@ export default function SourcesPage() {
 
   return (
     <AppLayout>
-      <RoleGuard roles={['ADMIN', 'ENGINEER']}>
+      <RoleGuard module="API" redirect>
       <div className="fade-in">
         {toast && <div className={`alert ${toast.startsWith('✅') ? 'alert-success' : 'alert-error'}`} style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 999, width: 'auto', minWidth: 280 }}>{toast}</div>}
 

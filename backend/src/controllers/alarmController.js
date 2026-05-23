@@ -39,13 +39,14 @@ const alarmController = {
 
   getCorrelated: async (req, res) => {
     try {
-      const { page = 1, limit = 20, severity, status, siteId } = req.query;
+      const { page = 1, limit = 20, severity, status, siteId, networkLayer } = req.query;
       const result = await alarmService.getCorrelatedEvents({
         page: parseInt(page),
         limit: parseInt(limit),
         severity,
         status,
         siteId,
+        networkLayer,
       });
       return res.status(200).json(result);
     } catch (err) {
@@ -73,7 +74,11 @@ const alarmController = {
 
   getTimeSeries: async (req, res) => {
     try {
-      const series = await alarmService.getAlarmTimeSeries();
+      const range  = req.query.range || '12h';
+      const allowed = ['1h', '6h', '12h', '24h', '7d'];
+      const series = await alarmService.getAlarmTimeSeries(
+        allowed.includes(range) ? range : '12h'
+      );
       return res.status(200).json(series);
     } catch (err) {
       return res.status(500).json({ error: err.message });

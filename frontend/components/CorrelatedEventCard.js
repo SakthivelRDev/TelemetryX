@@ -22,9 +22,14 @@ export default function CorrelatedEventCard({ event }) {
               {event.alarmIds?.length || 0} alarms
             </span>
           </div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--accent-cyan)', marginBottom: '0.4rem' }}>
-            {event.groupKey}
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+            {event.groupKeyLabel || event.groupKey}
           </div>
+          {event.groupKeyLabel && (
+            <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+              {event.groupKey}
+            </div>
+          )}
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{rule}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
             {formatTime(event.startTime)} → {formatTime(event.endTime)}

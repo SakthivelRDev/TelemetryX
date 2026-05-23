@@ -28,7 +28,7 @@ const alarmRepository = {
 
   findBySiteInWindow: (siteId, since) =>
     prisma.rawAlarm.findMany({
-      where: { siteId, timestamp: { gte: since }, severity: { in: ['CRITICAL', 'MAJOR'] } },
+      where: { siteId, timestamp: { gte: since }, severity: { in: ['CRITICAL', 'MEDIUM'] } },
       orderBy: { timestamp: 'asc' },
     }),
 

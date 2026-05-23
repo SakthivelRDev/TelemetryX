@@ -13,6 +13,11 @@ const rbac = (module, action) => {
     }
 
     try {
+      // Admin always has full access (matches locked matrix row in UI)
+      if (req.user.role === 'ADMIN') {
+        return next();
+      }
+
       const permission = await prisma.permission.findUnique({
         where: {
           role_module: {

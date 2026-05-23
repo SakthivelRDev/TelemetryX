@@ -546,6 +546,18 @@ select option { background: var(--bg-card); }
 /* ── Map ───────────────────────────────────────────────────────────────────── */
 .map-container { border-radius: var(--radius-lg); overflow: hidden; }
 
+.leaflet-map-host,
+.leaflet-map-host .leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.leaflet-map-host .leaflet-tile-pane img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 .leaflet-popup-content-wrapper {
   background: var(--bg-card) !important;
   border: 1px solid var(--border-color) !important;

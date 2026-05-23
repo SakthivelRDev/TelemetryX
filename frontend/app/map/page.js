@@ -65,7 +65,7 @@ export default function MapPage() {
 
   return (
     <AppLayout>
-      <RoleGuard>
+      <RoleGuard module="MAP" redirect>
       <div className="fade-in">
         <div className="page-header">
           <div className="flex-between">

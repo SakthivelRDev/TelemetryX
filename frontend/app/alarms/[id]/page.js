@@ -42,7 +42,7 @@ export default function AlarmDetailPage() {
 
   return (
     <AppLayout>
-      <RoleGuard roles={['ADMIN', 'ENGINEER']}>
+      <RoleGuard module="ALARM" redirect>
       <div className="fade-in">
         {/* Back + Header */}
         <div className="page-header">
