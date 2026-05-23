@@ -47,15 +47,60 @@ const alarmService = {
   },
 
   getDashboardStats: async () => {
-    const [totalRaw, openEvents, criticalSites, criticalAlarms] = await Promise.all([
+    const [totalRaw, openEvents, criticalSites, allSites] = await Promise.all([
       alarmRepository.count(),
       correlationRepository.countOpen(),
       prisma.site.count({ where: { status: 'CRITICAL' } }),
-      alarmRepository.countBySeverity('CRITICAL'),
+      prisma.site.findMany({ select: { status: true } }),
     ]);
 
-    return { totalRaw, openEvents, criticalSites, criticalAlarms };
+    // Severity breakdown
+    const severities = ['CRITICAL', 'MAJOR', 'MINOR', 'WARNING', 'INFO'];
+    const severityCounts = {};
+    for (const s of severities) {
+      severityCounts[s] = await alarmRepository.countBySeverity(s);
+    }
+
+    // Site status breakdown
+    const siteStatuses = {
+      CRITICAL: allSites.filter((s) => s.status === 'CRITICAL').length,
+      WARNING:  allSites.filter((s) => s.status === 'WARNING').length,
+      OK:       allSites.filter((s) => s.status === 'OK').length,
+    };
+
+    return {
+      totalRaw,
+      openEvents,
+      criticalSites,
+      criticalAlarms: severityCounts.CRITICAL,
+      severityCounts,
+      siteStatuses,
+    };
+  },
+
+  // Returns alarm counts grouped by hour for the last 12 hours
+  getAlarmTimeSeries: async () => {
+    const now   = new Date();
+    const hours = [];
+
+    for (let i = 11; i >= 0; i--) {
+      const start = new Date(now.getTime() - (i + 1) * 60 * 60 * 1000);
+      const end   = new Date(now.getTime() - i * 60 * 60 * 1000);
+      const label = `${end.getHours().toString().padStart(2, '0')}:00`;
+
+      const [total, critical, major, minor] = await Promise.all([
+        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end } } }),
+        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'CRITICAL' } }),
+        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'MAJOR' } }),
+        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'MINOR' } }),
+      ]);
+
+      hours.push({ hour: label, total, critical, major, minor });
+    }
+
+    return { series: hours };
   },
 };
 
 module.exports = alarmService;
+

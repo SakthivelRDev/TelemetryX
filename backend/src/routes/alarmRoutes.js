@@ -16,7 +16,14 @@ router.get('/raw/:id',        authMiddleware, rbac('ALARM', 'canRead'),  alarmCo
 router.post('/ingest',        authMiddleware, rbac('ALARM', 'canWrite'), alarmController.ingest);
 
 // Correlated events
-router.get('/correlated',     authMiddleware, rbac('ALARM', 'canRead'),  alarmController.getCorrelated);
-router.get('/correlated/:id', authMiddleware, rbac('ALARM', 'canRead'),  alarmController.getCorrelatedById);
+router.get('/correlated',     authMiddleware, rbac('ALARM', 'canRead'),   alarmController.getCorrelated);
+router.get('/correlated/:id', authMiddleware, rbac('ALARM', 'canRead'),   alarmController.getCorrelatedById);
+
+// Time series data for dashboard charts
+router.get('/timeseries',     authMiddleware, rbac('ALARM', 'canRead'),   alarmController.getTimeSeries);
+
+// Admin reset (closes all stale OPEN events)
+router.post('/reset',         authMiddleware, rbac('ALARM', 'canWrite'),  alarmController.resetData);
 
 module.exports = router;
+

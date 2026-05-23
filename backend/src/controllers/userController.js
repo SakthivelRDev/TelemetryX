@@ -64,6 +64,20 @@ const userController = {
       return res.status(400).json({ error: err.message });
     }
   },
+
+  // Returns effective permissions for a specific user (based on their role)
+  getUserEffectivePermissions: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await userService.getUserById(userId);
+      const permissions = await userService.getAllPermissions();
+      const effective = permissions.filter((p) => p.role === user.role);
+      return res.status(200).json({ user, permissions: effective });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
 };
 
 module.exports = userController;
+

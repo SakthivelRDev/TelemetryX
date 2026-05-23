@@ -23,12 +23,51 @@ function getHigherSeverity(a, b) {
   return SEVERITY_ORDER.indexOf(a) <= SEVERITY_ORDER.indexOf(b) ? a : b;
 }
 
+// Compute the worst severity from an array of severity strings
+function worstSeverity(severities) {
+  return severities.reduce(
+    (worst, s) => (SEVERITY_ORDER.indexOf(s) < SEVERITY_ORDER.indexOf(worst) ? s : worst),
+    'INFO'
+  );
+}
+
+/**
+ * Auto-close correlated events older than 15 minutes.
+ * This prevents events from accumulating indefinitely and ensures
+ * the map/alarms view reflects current network state.
+ */
+async function autoCloseOldEvents() {
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000);
+  const { PrismaClient } = require('@prisma/client');
+  const prisma = new PrismaClient();
+
+  const oldOpen = await prisma.correlatedEvent.findMany({
+    where: { status: 'OPEN', startTime: { lt: fifteenMinAgo } },
+  });
+
+  for (const event of oldOpen) {
+    await prisma.correlatedEvent.update({
+      where: { id: event.id },
+      data: { status: 'CLOSED', updatedAt: new Date() },
+    });
+  }
+
+  if (oldOpen.length > 0) {
+    console.log(`[CORRELATE] Auto-closed ${oldOpen.length} stale events (>15 min)`);
+  }
+
+  await prisma.$disconnect();
+}
+
 /**
  * Correlate a batch of newly normalized raw alarms.
- * @param {Array} newAlarms - array of saved raw_alarm objects (with id, siteId, deviceId, severity, timestamp)
+ * @param {Array} newAlarms - array of saved raw_alarm objects
  */
 async function correlateAlarms(newAlarms) {
   if (!newAlarms || newAlarms.length === 0) return;
+
+  // Auto-close stale events first
+  await autoCloseOldEvents();
 
   const fiveMinAgo  = new Date(Date.now() - 5  * 60 * 1000);
   const tenMinAgo   = new Date(Date.now() - 10 * 60 * 1000);
@@ -41,12 +80,10 @@ async function correlateAlarms(newAlarms) {
     const recentSameDevice = await alarmRepository.findBySiteAndDevice(siteId, deviceId, fiveMinAgo);
 
     if (recentSameDevice.length >= 1) {
-      // Check if there's an open correlated event for this groupKey
       const existingEvent = await correlationRepository.findOpenByGroupKey(rule1Key);
 
       if (existingEvent) {
-        // Merge: add alarm to existing event, escalate severity if needed, update endTime
-        const mergedAlarmIds  = [...new Set([...existingEvent.alarmIds, id])];
+        const mergedAlarmIds    = [...new Set([...existingEvent.alarmIds, id])];
         const escalatedSeverity = getHigherSeverity(existingEvent.severity, severity);
 
         await correlationRepository.update(existingEvent.id, {
@@ -59,7 +96,6 @@ async function correlateAlarms(newAlarms) {
         console.log(`[CORRELATE] Rule 1 MERGE → ${rule1Key} (${mergedAlarmIds.length} alarms, ${escalatedSeverity})`);
         continue;
       } else {
-        // Create new event under Rule 1
         const alarmIds = recentSameDevice.map((a) => a.id);
         if (!alarmIds.includes(id)) alarmIds.push(id);
 
@@ -82,17 +118,19 @@ async function correlateAlarms(newAlarms) {
 
     // ── RULE 2: Same site, multiple CRITICAL/MAJOR devices within 10 min ──
     if (['CRITICAL', 'MAJOR'].includes(severity)) {
-      const rule2Key  = `${siteId}:MULTI`;
+      const rule2Key     = `${siteId}:MULTI`;
       const siteCritical = await alarmRepository.findBySiteInWindow(siteId, tenMinAgo);
 
-      // Need at least 2 different devices
       const uniqueDevices = [...new Set(siteCritical.map((a) => a.deviceId))];
       if (uniqueDevices.length >= 2) {
         const existingEvent = await correlationRepository.findOpenByGroupKey(rule2Key);
+        // Calculate actual severity from all the alarms — don't hardcode CRITICAL
+        const allSeverities  = siteCritical.map((a) => a.severity);
+        const actualSeverity = worstSeverity(allSeverities);
 
         if (existingEvent) {
-          const mergedAlarmIds = [...new Set([...existingEvent.alarmIds, id])];
-          const escalatedSeverity = getHigherSeverity(existingEvent.severity, severity);
+          const mergedAlarmIds    = [...new Set([...existingEvent.alarmIds, id])];
+          const escalatedSeverity = getHigherSeverity(existingEvent.severity, actualSeverity);
 
           await correlationRepository.update(existingEvent.id, {
             alarmIds: mergedAlarmIds,
@@ -108,7 +146,7 @@ async function correlateAlarms(newAlarms) {
           await correlationRepository.create({
             groupKey:        rule2Key,
             alarmIds,
-            severity:        'CRITICAL',
+            severity:        actualSeverity, // ✅ Computed, not hardcoded
             startTime:       new Date(Math.min(...siteCritical.map((a) => a.timestamp.getTime()))),
             endTime:         new Date(),
             status:          'OPEN',
@@ -117,7 +155,7 @@ async function correlateAlarms(newAlarms) {
             deviceId:        'MULTI',
           });
 
-          console.log(`[CORRELATE] Rule 2 CREATE → ${rule2Key} (site-wide, ${uniqueDevices.length} devices)`);
+          console.log(`[CORRELATE] Rule 2 CREATE → ${rule2Key} (site-wide, ${uniqueDevices.length} devices, ${actualSeverity})`);
         }
         continue;
       }
@@ -128,7 +166,6 @@ async function correlateAlarms(newAlarms) {
     const existingStandalone = await correlationRepository.findOpenByGroupKey(rule3Key);
 
     if (existingStandalone) {
-      // Absorb into existing standalone event
       const mergedAlarmIds = [...new Set([...existingStandalone.alarmIds, id])];
       await correlationRepository.update(existingStandalone.id, {
         alarmIds: mergedAlarmIds,

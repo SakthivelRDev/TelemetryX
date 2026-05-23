@@ -38,6 +38,37 @@
   --shadow-glow: 0 0 20px rgba(99,120,255,0.15);
 }
 
+/* ── Light Mode ────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary:   #f0f4f8;
+  --bg-secondary: #e2e8f0;
+  --bg-card:      #ffffff;
+  --bg-hover:     #dde6f0;
+  --bg-glass:     rgba(255,255,255,0.85);
+
+  --border-color: rgba(99,120,255,0.18);
+  --border-hover: rgba(99,120,255,0.5);
+
+  --text-primary:   #1a202c;
+  --text-secondary: #4a5568;
+  --text-muted:     #718096;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 24px rgba(0,0,0,0.12);
+  --shadow-glow: 0 0 20px rgba(99,120,255,0.1);
+}
+
+[data-theme="light"] .navbar           { background: #ffffff; }
+[data-theme="light"] thead th          { background: #eef2f8; }
+[data-theme="light"] .login-card       { box-shadow: 0 12px 40px rgba(0,0,0,0.12); }
+[data-theme="light"] input,
+[data-theme="light"] select            { background: #f8fafc; color: #1a202c; }
+[data-theme="light"] select option     { background: #ffffff; color: #1a202c; }
+[data-theme="light"] .btn-secondary    { color: #4a5568; }
+[data-theme="light"] .btn-secondary:hover { color: #1a202c; background: #dde6f0; }
+[data-theme="light"] .leaflet-popup-content-wrapper { color: #1a202c !important; background: #ffffff !important; }
+
+
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -631,4 +662,113 @@ select option { background: var(--bg-card); }
 
 .perm-table td:first-child, .perm-table th:first-child {
   text-align: left;
+}
+
+/* ── Password Input Wrapper ────────────────────────────────────────────────── */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper input {
+  padding-right: 3rem;
+}
+
+.input-eye-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 0.25rem;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.input-eye-btn:hover { color: var(--accent-blue); }
+
+/* ── Chart Container ───────────────────────────────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.chart-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Map Tile Control ──────────────────────────────────────────────────────── */
+.tile-control {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.tile-btn {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.tile-btn:hover     { border-color: var(--border-hover); color: var(--text-primary); }
+.tile-btn.active    { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+
+/* ── Info Banner ───────────────────────────────────────────────────────────── */
+.info-banner {
+  background: rgba(99,120,255,0.07);
+  border: 1px solid rgba(99,120,255,0.2);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+  line-height: 1.7;
+}
+
+.info-banner strong { color: var(--accent-blue); }
+
+/* ── Theme Toggle Button ───────────────────────────────────────────────────── */
+.theme-toggle-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.4rem 0.65rem;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }

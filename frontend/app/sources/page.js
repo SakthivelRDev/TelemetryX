@@ -86,9 +86,26 @@ export default function SourcesPage() {
           </div>
         </div>
 
+        {/* Info Banners */}
+        <div className="info-banner" style={{ marginBottom: '0.75rem' }}>
+          <strong>🗄 What are API Sources?</strong><br />
+          API Sources are the registered data endpoints that this system polls for network alarms.
+          Each source has a <em>type</em> (MOCK = simulated, REST = external HTTP, SNMP = network traps) and a <em>URL</em>.
+          The system polls all <code>mock://</code> sources every <strong>10 seconds</strong> automatically and transforms the raw data through the normalization → correlation pipeline.
+          You can add new sources (e.g., a real REST endpoint) and they&apos;ll be included in future polling cycles.
+        </div>
+
+        <div className="info-banner" style={{ marginBottom: '1.25rem' }}>
+          <strong>⚡ What does &quot;Poll Now&quot; do?</strong><br />
+          Clicking <em>Poll Now</em> on a source immediately triggers <strong>one full ingestion cycle</strong> for that source: generate/fetch alarms → normalize format → run the 3-rule correlation engine → update site statuses.
+          It&apos;s identical to what happens automatically every 10s, but on-demand.
+          Use it to see results instantly when testing or demoing.
+        </div>
+
         {/* Pipeline Diagram */}
         <div className="card" style={{ marginBottom: '1.25rem' }}>
           <div className="card-header"><span className="card-title">📊 Ingestion Pipeline</span></div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center', padding: '1rem 0' }}>
             {[
               { step: '1', label: 'Mock Sources', icon: '📡', color: 'var(--accent-blue)' },

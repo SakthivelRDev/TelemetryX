@@ -2,14 +2,17 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginPage() {
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
-  const { login }   = useAuth();
-  const router      = useRouter();
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [showPwd, setShowPwd]     = useState(false);
+  const [error, setError]         = useState('');
+  const [loading, setLoading]     = useState(false);
+  const { login }                 = useAuth();
+  const { theme, toggleTheme }    = useTheme();
+  const router                    = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,6 +40,17 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
+      {/* Theme toggle in corner */}
+      <button
+        className="theme-toggle-btn"
+        onClick={toggleTheme}
+        id="login-theme-toggle"
+        style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', zIndex: 10 }}
+        title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+      >
+        {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+      </button>
+
       <div className="login-card fade-in">
         <div className="login-logo">
           <div className="login-logo-text">⬡ App360</div>
@@ -61,15 +75,26 @@ export default function LoginPage() {
 
           <div className="form-group">
             <label htmlFor="login-password">Password</label>
-            <input
-              id="login-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-            />
+            <div className="input-wrapper">
+              <input
+                id="login-password"
+                type={showPwd ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="input-eye-btn"
+                onClick={() => setShowPwd((v) => !v)}
+                id="toggle-password-visibility"
+                title={showPwd ? 'Hide password' : 'Show password'}
+              >
+                {showPwd ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={loading} id="login-submit" style={{ width: '100%', justifyContent: 'center', padding: '0.75rem', fontSize: '0.95rem', marginBottom: '1.5rem' }}>

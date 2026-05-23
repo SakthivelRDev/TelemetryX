@@ -1,6 +1,6 @@
 import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
-import Navbar from '../components/Navbar';
+import { ThemeProvider } from '../context/ThemeContext';
 
 export const metadata = {
   title: 'App360 – Network Operations Center',
@@ -16,11 +16,12 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>" />
       </head>
       <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
-

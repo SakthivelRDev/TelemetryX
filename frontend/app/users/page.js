@@ -6,6 +6,10 @@ import PermissionsEditor from '../../components/PermissionsEditor';
 import UserForm from '../../components/UserForm';
 import api from '../../lib/api';
 
+const MODULES  = ['ALARM', 'MAP', 'API', 'USER'];
+const ACTIONS  = ['canRead', 'canWrite', 'canDelete'];
+const ACT_LABELS = { canRead: 'READ', canWrite: 'WRITE', canDelete: 'DELETE' };
+
 export default function UsersPage() {
   const [users, setUsers]           = useState([]);
   const [permissions, setPermissions] = useState([]);
@@ -16,6 +20,11 @@ export default function UsersPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError]   = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // Per-user permissions
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [userEffective, setUserEffective]   = useState(null);
+  const [loadingEffective, setLoadingEffective] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -33,6 +42,20 @@ export default function UsersPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Load effective permissions for selected user
+  const loadUserPermissions = async (userId) => {
+    if (!userId) { setUserEffective(null); return; }
+    setLoadingEffective(true);
+    try {
+      const res = await api.get(`/api/users/permissions/user/${userId}`);
+      setUserEffective(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingEffective(false);
+    }
+  };
 
   const handleCreate = async (data) => {
     setFormLoading(true);
@@ -72,6 +95,15 @@ export default function UsersPage() {
     }
   };
 
+  // Build a quick-lookup map from permissions array for the user effective view
+  function buildPermMap(permsArray) {
+    const map = {};
+    for (const p of (permsArray || [])) {
+      map[p.module] = p;
+    }
+    return map;
+  }
+
   return (
     <AppLayout>
       <RoleGuard roles={['ADMIN']}>
@@ -92,15 +124,16 @@ export default function UsersPage() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          <button className={`btn ${tab === 'users' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('users')} id="tab-users">Users</button>
+          <button className={`btn ${tab === 'users'       ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('users')}       id="tab-users">Users</button>
           <button className={`btn ${tab === 'permissions' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('permissions')} id="tab-permissions">Permissions Matrix</button>
+          <button className={`btn ${tab === 'user-perms'  ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('user-perms')}  id="tab-user-perms">User Permissions</button>
         </div>
 
         {loading ? (
           <div className="loading-state"><div className="spinner" /></div>
         ) : tab === 'users' ? (
           <div>
-            {/* User Form Modal */}
+            {/* User Form */}
             {(showForm || editUser) && (
               <div className="card fade-in" style={{ marginBottom: '1.25rem', borderColor: 'var(--accent-blue)' }}>
                 <div className="card-header">
@@ -153,13 +186,112 @@ export default function UsersPage() {
               </div>
             </div>
           </div>
-        ) : (
+
+        ) : tab === 'permissions' ? (
           <div className="card">
             <div className="card-header">
               <span className="card-title">🔐 RBAC Permissions Matrix</span>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Toggle permissions per role × module</span>
             </div>
+            <div className="info-banner">
+              <strong>How this works:</strong> Each role (Admin, Engineer, Viewer) has a set of permissions per module (Alarm, Map, API, User).
+              Toggling a switch saves immediately to the database and takes effect for new requests by users of that role.
+              Admin permissions are locked (always full access).
+            </div>
             <PermissionsEditor permissions={permissions} onUpdated={fetchData} />
+          </div>
+
+        ) : (
+          /* ── User-Specific Permissions View ── */
+          <div>
+            <div className="info-banner">
+              <strong>User Permissions:</strong> Select a user to see their <em>effective permissions</em> — inherited from their assigned role.
+              To change a user&apos;s permissions, change their role or edit the role&apos;s permissions in the <strong>Permissions Matrix</strong> tab.
+            </div>
+
+            <div className="card" style={{ marginBottom: '1.25rem' }}>
+              <div className="card-header">
+                <span className="card-title">👤 Select User</span>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => { setSelectedUserId(e.target.value); loadUserPermissions(e.target.value); }}
+                  style={{ maxWidth: 280 }}
+                  id="user-permissions-select"
+                >
+                  <option value="">— Select a user —</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                  ))}
+                </select>
+                {loadingEffective && <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />}
+              </div>
+            </div>
+
+            {userEffective && (
+              <div className="card fade-in">
+                <div className="card-header">
+                  <div>
+                    <span className="card-title">
+                      Effective Permissions for <strong style={{ color: 'var(--accent-blue)' }}>{userEffective.user?.name}</strong>
+                    </span>
+                    <div style={{ marginTop: '0.25rem' }}>
+                      <span className={`badge badge-${userEffective.user?.role?.toLowerCase()}`}>{userEffective.user?.role}</span>
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{userEffective.user?.email}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="table-wrapper">
+                  <table className="perm-table">
+                    <thead>
+                      <tr>
+                        <th>MODULE</th>
+                        {ACTIONS.map((a) => <th key={a}>{ACT_LABELS[a]}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {MODULES.map((mod) => {
+                        const permMap = buildPermMap(userEffective.permissions);
+                        const perm    = permMap[mod] || {};
+                        return (
+                          <tr key={mod}>
+                            <td>
+                              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{mod}</span>
+                            </td>
+                            {ACTIONS.map((action) => (
+                              <td key={action}>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 28, height: 28,
+                                  borderRadius: '50%',
+                                  background: perm[action]
+                                    ? 'rgba(16,185,129,0.15)'
+                                    : 'rgba(71,85,105,0.15)',
+                                  border: perm[action]
+                                    ? '1px solid rgba(16,185,129,0.4)'
+                                    : '1px solid rgba(71,85,105,0.3)',
+                                  fontSize: '0.85rem',
+                                }}>
+                                  {perm[action] ? '✅' : '—'}
+                                </span>
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  💡 <strong>Tip:</strong> To modify permissions for this user, change their role in the <em>Users</em> tab or edit the {userEffective.user?.role} role permissions in the <em>Permissions Matrix</em> tab.
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

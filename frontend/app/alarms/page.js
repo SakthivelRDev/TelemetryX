@@ -15,7 +15,7 @@ export default function AlarmsPage() {
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
   const [severity, setSeverity] = useState('');
-  const [status, setStatus]     = useState('OPEN');
+  const [status, setStatus]     = useState('');
   const [page, setPage]         = useState(1);
   const siteId = searchParams.get('siteId') || '';
 
@@ -54,7 +54,12 @@ export default function AlarmsPage() {
               <h1 className="page-title">🔔 Correlated Alarms</h1>
               <p className="page-subtitle">{total} events found · Click to drill-down</p>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={triggerIngest} id="trigger-ingest">
+            <button 
+              className="btn btn-primary btn-sm" 
+              onClick={triggerIngest} 
+              id="trigger-ingest"
+              title="Manually fire one ingestion cycle: generate mock alarms → normalize → correlate → update site statuses. Same as the automatic 10s cycle."
+            >
               ⚡ Trigger Ingest
             </button>
           </div>

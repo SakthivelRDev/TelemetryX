@@ -70,6 +70,39 @@ const alarmController = {
       return res.status(500).json({ error: err.message });
     }
   },
+
+  getTimeSeries: async (req, res) => {
+    try {
+      const series = await alarmService.getAlarmTimeSeries();
+      return res.status(200).json(series);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
+  // Close all stale open events and reset site statuses
+  resetData: async (req, res) => {
+    try {
+      const { PrismaClient } = require('@prisma/client');
+      const prisma = new PrismaClient();
+
+      // Close all open events
+      const updated = await prisma.correlatedEvent.updateMany({
+        where: { status: 'OPEN' },
+        data:  { status: 'CLOSED', updatedAt: new Date() },
+      });
+
+      // Reset all sites to OK
+      await prisma.site.updateMany({ data: { status: 'OK' } });
+
+
+      await prisma.$disconnect();
+      return res.status(200).json({ message: `Reset complete. Closed ${updated.count} events.` });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
 };
 
 module.exports = alarmController;
+
