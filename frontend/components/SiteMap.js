@@ -104,15 +104,30 @@ export default function SiteMap({ sites = [], onSiteClick }) {
 
       mapRef.current = map;
 
-      // CRITICAL: force Leaflet to recalculate container size after render
-      requestAnimationFrame(() => {
-        map.invalidateSize({ animate: false });
-        renderMarkers(L, map);
-      });
+      // CRITICAL: give the browser time to fully paint the container before measuring
+      // requestAnimationFrame is too fast — tiles appear black when container hasn't been laid out
+      setTimeout(() => {
+        if (mapRef.current) {
+          map.invalidateSize({ animate: false });
+          renderMarkers(L, map);
+        }
+      }, 400);
+
+      // Second invalidation as fallback (handles slow renders)
+      setTimeout(() => {
+        if (mapRef.current) map.invalidateSize({ animate: false });
+      }, 1200);
+
+      // Also re-measure on window resize
+      const onResize = () => { if (mapRef.current) mapRef.current.invalidateSize({ animate: false }); };
+      window.addEventListener('resize', onResize);
+      // Store cleanup ref
+      mapRef._resizeCleanup = onResize;
     });
 
     return () => {
       if (mapRef.current) {
+        if (mapRef._resizeCleanup) window.removeEventListener('resize', mapRef._resizeCleanup);
         mapRef.current.remove();
         mapRef.current = null;
       }

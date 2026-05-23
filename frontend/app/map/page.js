@@ -119,13 +119,20 @@ export default function MapPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 300px' : '1fr', gap: '1.25rem' }}>
-          {/* Map */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {loading ? (
-              <div className="loading-state" style={{ height: 600 }}><div className="spinner" /></div>
-            ) : (
-              <SiteMap sites={sites} onSiteClick={setSelected} />
+          {/* Map — always rendered so Leaflet measures a stable container */}
+          <div className="card" style={{ padding: 0, position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'clip' }}>
+            {/* Loading overlay on TOP of map — never unmount SiteMap */}
+            {loading && (
+              <div style={{
+                position: 'absolute', inset: 0, zIndex: 900,
+                background: 'rgba(10,14,26,0.6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 'var(--radius-lg)',
+              }}>
+                <div className="spinner" />
+              </div>
             )}
+            <SiteMap sites={sites} onSiteClick={setSelected} />
           </div>
 
           {/* Site Detail Panel */}
