@@ -15,10 +15,8 @@ const {
 
 const SEVERITY_COLORS = {
   CRITICAL: '#ef4444',
-  MAJOR:    '#f97316',
-  MINOR:    '#eab308',
-  WARNING:  '#f59e0b',
-  INFO:     '#6378ff',
+  MEDIUM:   '#f97316',
+  LOW:      '#eab308',
 };
 
 const SITE_STATUS_COLORS = { CRITICAL: '#ef4444', WARNING: '#f59e0b', OK: '#10b981' };
@@ -173,7 +171,7 @@ export default function DashboardPage() {
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                       <Area type="monotone" dataKey="total"    stroke="#6378ff" fill="url(#gradTotal)" name="Total"    strokeWidth={2} />
                       <Area type="monotone" dataKey="critical" stroke="#ef4444" fill="url(#gradCrit)"  name="Critical" strokeWidth={2} />
-                      <Area type="monotone" dataKey="major"    stroke="#f97316" fill="none"            name="Major"    strokeWidth={1.5} strokeDasharray="4 2" />
+                      <Area type="monotone" dataKey="medium"   stroke="#f97316" fill="none"            name="Medium"   strokeWidth={1.5} strokeDasharray="4 2" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

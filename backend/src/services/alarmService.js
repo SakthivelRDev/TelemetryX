@@ -54,8 +54,8 @@ const alarmService = {
       prisma.site.findMany({ select: { status: true } }),
     ]);
 
-    // Severity breakdown
-    const severities = ['CRITICAL', 'MAJOR', 'MINOR', 'WARNING', 'INFO'];
+    // Severity breakdown (3-level)
+    const severities = ['CRITICAL', 'MEDIUM', 'LOW'];
     const severityCounts = {};
     for (const s of severities) {
       severityCounts[s] = await alarmRepository.countBySeverity(s);
@@ -88,14 +88,14 @@ const alarmService = {
       const end   = new Date(now.getTime() - i * 60 * 60 * 1000);
       const label = `${end.getHours().toString().padStart(2, '0')}:00`;
 
-      const [total, critical, major, minor] = await Promise.all([
+      const [total, critical, medium, low] = await Promise.all([
         prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end } } }),
         prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'CRITICAL' } }),
-        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'MAJOR' } }),
-        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'MINOR' } }),
+        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'MEDIUM'   } }),
+        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'LOW'      } }),
       ]);
 
-      hours.push({ hour: label, total, critical, major, minor });
+      hours.push({ hour: label, total, critical, medium, low });
     }
 
     return { series: hours };

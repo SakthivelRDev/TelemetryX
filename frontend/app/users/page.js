@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import PermissionsEditor from '../../components/PermissionsEditor';
@@ -11,6 +12,8 @@ const ACTIONS  = ['canRead', 'canWrite', 'canDelete'];
 const ACT_LABELS = { canRead: 'READ', canWrite: 'WRITE', canDelete: 'DELETE' };
 
 export default function UsersPage() {
+  const { user } = useAuth();
+  const isAdmin  = user?.role === 'ADMIN';
   const [users, setUsers]           = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -106,7 +109,7 @@ export default function UsersPage() {
 
   return (
     <AppLayout>
-      <RoleGuard roles={['ADMIN']}>
+      <RoleGuard roles={['ADMIN', 'ENGINEER']}>
       <div className="fade-in">
         <div className="page-header">
           <div className="flex-between">
@@ -114,7 +117,7 @@ export default function UsersPage() {
               <h1 className="page-title">👥 User Management</h1>
               <p className="page-subtitle">Manage users, roles, and module permissions</p>
             </div>
-            {tab === 'users' && (
+            {tab === 'users' && user?.role === 'ADMIN' && (
               <button className="btn btn-primary" onClick={() => { setShowForm(true); setEditUser(null); setFormError(''); }} id="add-user-btn">
                 + Add User
               </button>
@@ -168,14 +171,20 @@ export default function UsersPage() {
                         <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{new Date(u.createdAt).toLocaleDateString('en-IN')}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => { setEditUser(u); setShowForm(false); setFormError(''); }} id={`edit-user-${u.id}`}>Edit</button>
-                            {deleteConfirm === u.id ? (
+                            {isAdmin ? (
                               <>
-                                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(u.id)} id={`confirm-delete-${u.id}`}>Confirm</button>
-                                <button className="btn btn-secondary btn-sm" onClick={() => setDeleteConfirm(null)} id={`cancel-delete-${u.id}`}>Cancel</button>
+                                <button className="btn btn-secondary btn-sm" onClick={() => { setEditUser(u); setShowForm(false); setFormError(''); }} id={`edit-user-${u.id}`}>Edit</button>
+                                {deleteConfirm === u.id ? (
+                                  <>
+                                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(u.id)} id={`confirm-delete-${u.id}`}>Confirm</button>
+                                    <button className="btn btn-secondary btn-sm" onClick={() => setDeleteConfirm(null)} id={`cancel-delete-${u.id}`}>Cancel</button>
+                                  </>
+                                ) : (
+                                  <button className="btn btn-danger btn-sm" onClick={() => setDeleteConfirm(u.id)} id={`delete-user-${u.id}`}>Delete</button>
+                                )}
                               </>
                             ) : (
-                              <button className="btn btn-danger btn-sm" onClick={() => setDeleteConfirm(u.id)} id={`delete-user-${u.id}`}>Delete</button>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>View Only</span>
                             )}
                           </div>
                         </td>

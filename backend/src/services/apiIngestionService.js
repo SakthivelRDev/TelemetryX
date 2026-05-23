@@ -1,4 +1,4 @@
-const { generateSourceAAlarms, generateSourceBAlarms } = require('../mock/mockAlarmGenerator');
+const { generateSourceA, generateSourceB } = require('../mock/mockAlarmGenerator');
 const { normalizeSourceA, normalizeSourceB }           = require('./normalizationService');
 const { correlateAlarms }                              = require('./correlationService');
 const alarmRepository    = require('../repositories/alarmRepository');
@@ -17,8 +17,8 @@ async function runIngestion() {
     console.log('\n[INGEST] ─────────────── Starting ingestion run ───────────────');
 
     // ── Step 1: Generate raw alarms from mock sources ─────────────────────
-    const rawA = generateSourceAAlarms(Math.floor(Math.random() * 4) + 2); // 2–5 alarms
-    const rawB = generateSourceBAlarms(Math.floor(Math.random() * 4) + 2); // 2–5 alarms
+    const rawA = generateSourceA(Math.floor(Math.random() * 4) + 2); // 2–5 alarms
+    const rawB = generateSourceB(Math.floor(Math.random() * 4) + 2); // 2–5 alarms
     console.log(`[INGEST] Pulled ${rawA.length} alarms from sourceA, ${rawB.length} from sourceB`);
 
     // ── Step 2: Normalize into internal schema ─────────────────────────────
@@ -76,7 +76,7 @@ async function recalculateSiteStatuses() {
     let worstStatus = 'OK';
     for (const event of openEvents) {
       if (event.severity === 'CRITICAL') { worstStatus = 'CRITICAL'; break; }
-      if (['MAJOR', 'MINOR'].includes(event.severity) && worstStatus !== 'CRITICAL') {
+      if (event.severity === 'MEDIUM' && worstStatus !== 'CRITICAL') {
         worstStatus = 'WARNING';
       }
     }

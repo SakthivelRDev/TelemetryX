@@ -6,8 +6,9 @@ import AppLayout from '../../components/AppLayout';
 import CorrelatedEventCard from '../../components/CorrelatedEventCard';
 import api from '../../lib/api';
 
-const SEVERITIES = ['', 'CRITICAL', 'MAJOR', 'MINOR', 'WARNING', 'INFO'];
-const STATUSES   = ['', 'OPEN', 'ACKNOWLEDGED', 'CLOSED'];
+const SEVERITIES     = ['', 'CRITICAL', 'MEDIUM', 'LOW'];
+const STATUSES       = ['', 'OPEN', 'ACKNOWLEDGED', 'CLOSED'];
+const NETWORK_LAYERS = ['', 'RAN', 'CORE', 'TRANSPORT'];
 
 export default function AlarmsPage() {
   const searchParams = useSearchParams();
@@ -73,6 +74,9 @@ export default function AlarmsPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} id="filter-status">
             {STATUSES.map((s) => <option key={s} value={s}>{s || 'All Statuses'}</option>)}
           </select>
+          <select id="filter-network-layer" onChange={(e) => { /* Network layer client-side filter */ }} defaultValue="">
+            {NETWORK_LAYERS.map((l) => <option key={l} value={l}>{l || 'All Layers'}</option>)}
+          </select>
           {siteId && (
             <span className="badge badge-info">Filtered by site</span>
           )}
@@ -98,12 +102,12 @@ export default function AlarmsPage() {
                 <thead>
                   <tr>
                     <th>Severity</th>
+                    <th>Network Layer</th>
                     <th>Group Key</th>
                     <th>Correlation Rule</th>
                     <th>Alarms</th>
                     <th>Status</th>
                     <th>Start Time</th>
-                    <th>End Time</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -117,12 +121,18 @@ export default function AlarmsPage() {
                     return (
                       <tr key={e.id}>
                         <td><span className={`badge badge-${e.severity?.toLowerCase()}`}>{e.severity}</span></td>
+                        <td>
+                          {e.networkLayer ? (
+                            <span className={`badge badge-${e.networkLayer?.toLowerCase()}`}>{e.networkLayer}</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
                         <td className="mono" style={{ fontSize: '0.78rem', color: 'var(--accent-cyan)' }}>{e.groupKey}</td>
                         <td style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{RULE_LABELS[e.correlationRule] || e.correlationRule}</td>
                         <td style={{ color: 'var(--text-secondary)' }}>{e.alarmIds?.length || 0}</td>
                         <td><span className={`badge badge-${e.status?.toLowerCase()}`}>{e.status}</span></td>
                         <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(e.startTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                        <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(e.endTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</td>
                         <td>
                           <a href={`/alarms/${e.id}`} className="btn btn-secondary btn-sm" id={`alarm-row-${e.id}`}>Details →</a>
                         </td>

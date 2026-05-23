@@ -17,7 +17,8 @@ const correlationRepository = require('../repositories/correlationRepository');
  *          groupKey = siteId:deviceId:STANDALONE
  */
 
-const SEVERITY_ORDER = ['CRITICAL', 'MAJOR', 'MINOR', 'WARNING', 'INFO'];
+// 3-level severity: CRITICAL (service-affecting) > MEDIUM (degraded) > LOW (sub-optimal)
+const SEVERITY_ORDER = ['CRITICAL', 'MEDIUM', 'LOW'];
 
 function getHigherSeverity(a, b) {
   return SEVERITY_ORDER.indexOf(a) <= SEVERITY_ORDER.indexOf(b) ? a : b;
@@ -27,7 +28,7 @@ function getHigherSeverity(a, b) {
 function worstSeverity(severities) {
   return severities.reduce(
     (worst, s) => (SEVERITY_ORDER.indexOf(s) < SEVERITY_ORDER.indexOf(worst) ? s : worst),
-    'INFO'
+    'LOW'
   );
 }
 
@@ -48,7 +49,7 @@ async function autoCloseOldEvents() {
   for (const event of oldOpen) {
     await prisma.correlatedEvent.update({
       where: { id: event.id },
-      data: { status: 'CLOSED', updatedAt: new Date() },
+      data: { status: 'CLOSED' },
     });
   }
 
@@ -73,7 +74,7 @@ async function correlateAlarms(newAlarms) {
   const tenMinAgo   = new Date(Date.now() - 10 * 60 * 1000);
 
   for (const alarm of newAlarms) {
-    const { id, siteId, deviceId, severity, timestamp } = alarm;
+    const { id, siteId, deviceId, severity, timestamp, networkLayer } = alarm;
 
     // ── RULE 1: Same site + same device within 5 minutes ──────────────────
     const rule1Key = `${siteId}:${deviceId}`;
@@ -109,6 +110,7 @@ async function correlateAlarms(newAlarms) {
           correlationRule: 'RULE_1_SAME_SITE_DEVICE',
           siteId,
           deviceId,
+          networkLayer:    networkLayer || 'TRANSPORT',
         });
 
         console.log(`[CORRELATE] Rule 1 CREATE → ${rule1Key} (${alarmIds.length} alarms, ${severity})`);
@@ -116,8 +118,8 @@ async function correlateAlarms(newAlarms) {
       }
     }
 
-    // ── RULE 2: Same site, multiple CRITICAL/MAJOR devices within 10 min ──
-    if (['CRITICAL', 'MAJOR'].includes(severity)) {
+    // ── RULE 2: Same site, multiple CRITICAL/MEDIUM devices within 10 min ──
+    if (['CRITICAL', 'MEDIUM'].includes(severity)) {
       const rule2Key     = `${siteId}:MULTI`;
       const siteCritical = await alarmRepository.findBySiteInWindow(siteId, tenMinAgo);
 
@@ -146,13 +148,14 @@ async function correlateAlarms(newAlarms) {
           await correlationRepository.create({
             groupKey:        rule2Key,
             alarmIds,
-            severity:        actualSeverity, // ✅ Computed, not hardcoded
+            severity:        actualSeverity,
             startTime:       new Date(Math.min(...siteCritical.map((a) => a.timestamp.getTime()))),
             endTime:         new Date(),
             status:          'OPEN',
             correlationRule: 'RULE_2_SITE_WIDE_CRITICAL',
             siteId,
             deviceId:        'MULTI',
+            networkLayer:    networkLayer || 'TRANSPORT',
           });
 
           console.log(`[CORRELATE] Rule 2 CREATE → ${rule2Key} (site-wide, ${uniqueDevices.length} devices, ${actualSeverity})`);
@@ -182,6 +185,7 @@ async function correlateAlarms(newAlarms) {
         correlationRule: 'RULE_3_STANDALONE',
         siteId,
         deviceId,
+        networkLayer:    networkLayer || 'TRANSPORT',
       });
 
       console.log(`[CORRELATE] Rule 3 STANDALONE → ${rule3Key} (${severity})`);

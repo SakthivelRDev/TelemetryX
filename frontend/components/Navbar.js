@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { href: '/alarms',    label: 'Alarms',          icon: '🔔', roles: ['ADMIN', 'ENGINEER'] },
   { href: '/map',       label: 'Network Map',     icon: '🗺', roles: ['ADMIN', 'ENGINEER', 'VIEWER'] },
   { href: '/sources',   label: 'API Sources',     icon: '⚡', roles: ['ADMIN', 'ENGINEER'] },
-  { href: '/users',     label: 'User Management', icon: '👥', roles: ['ADMIN'] },
+  { href: '/users',     label: 'User Management', icon: '👥', roles: ['ADMIN', 'ENGINEER'] }, // Engineers can view user list
 ];
 
 export default function Navbar() {
