@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ENGINEER
+  VIEWER
+}
+
+enum Module {
+  ALARM
+  MAP
+  API
+  USER
+}
+
+enum Severity {
+  CRITICAL
+  MAJOR
+  MINOR
+  WARNING
+  INFO
+}
+
+enum SiteStatus {
+  OK
+  WARNING
+  CRITICAL
+}
+
+enum EventStatus {
+  OPEN
+  ACKNOWLEDGED
+  CLOSED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Permission {
+  id        String  @id @default(uuid())
+  role      Role
+  module    Module
+  canRead   Boolean @default(false)
+  canWrite  Boolean @default(false)
+  canDelete Boolean @default(false)
+
+  @@unique([role, module])
+  @@map("permissions")
+}
+
+model RawAlarm {
+  id         String   @id @default(uuid())
+  source     String
+  siteId     String
+  deviceId   String
+  severity   Severity
+  message    String
+  timestamp  DateTime
+  normalized Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@map("raw_alarms")
+}
+
+model CorrelatedEvent {
+  id              String      @id @default(uuid())
+  groupKey        String
+  alarmIds        String[]
+  severity        Severity
+  startTime       DateTime
+  endTime         DateTime
+  status          EventStatus @default(OPEN)
+  correlationRule String
+  siteId          String
+  deviceId        String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("correlated_events")
+}
+
+model Site {
+  id        String     @id @default(uuid())
+  name      String
+  region    String
+  lat       Float
+  lng       Float
+  status    SiteStatus @default(OK)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("sites")
+}
+
+model ApiSource {
+  id           String    @id @default(uuid())
+  name         String
+  url          String
+  type         String
+  lastPolledAt DateTime?
+  status       String    @default("IDLE")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("api_sources")
+}
