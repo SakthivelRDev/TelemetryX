@@ -105,14 +105,16 @@ export default function SiteMap({ sites = [], onSiteClick }) {
       const transports = inRegion.filter((s) => s.networkLayer === 'TRANSPORT');
 
       cores.forEach((core) => {
+        if (!core.lat || !core.lng) return; // guard invalid coords
         rans.forEach((ran) => {
+          if (!ran.lat || !ran.lng) return;
           L.polyline(
             [[ran.lat, ran.lng], [core.lat, core.lng]],
             { color: LAYER_STYLE.RAN.color, weight: 2, opacity: 0.55, dashArray: '6 4' }
           ).addTo(linkGroup);
         });
 
-        const transport = nearestSite(core, transports);
+        const transport = nearestSite(core, transports.filter((t) => t.lat && t.lng));
         if (transport) {
           L.polyline(
             [[core.lat, core.lng], [transport.lat, transport.lng]],
@@ -122,14 +124,18 @@ export default function SiteMap({ sites = [], onSiteClick }) {
       });
 
       if (cores.length === 0 && rans.length && transports.length) {
-        const hub = nearestSite(rans[0], transports);
-        if (hub) {
-          rans.forEach((ran) => {
-            L.polyline(
-              [[ran.lat, ran.lng], [hub.lat, hub.lng]],
-              { color: '#94a3b8', weight: 1.5, opacity: 0.4, dashArray: '4 4' }
-            ).addTo(linkGroup);
-          });
+        const validRans = rans.filter((r) => r.lat && r.lng);
+        const validTransports = transports.filter((t) => t.lat && t.lng);
+        if (validRans.length && validTransports.length) {
+          const hub = nearestSite(validRans[0], validTransports);
+          if (hub) {
+            validRans.forEach((ran) => {
+              L.polyline(
+                [[ran.lat, ran.lng], [hub.lat, hub.lng]],
+                { color: '#94a3b8', weight: 1.5, opacity: 0.4, dashArray: '4 4' }
+              ).addTo(linkGroup);
+            });
+          }
         }
       }
     }
@@ -138,6 +144,7 @@ export default function SiteMap({ sites = [], onSiteClick }) {
     linksLayerRef.current = linkGroup;
 
     siteList.forEach((site) => {
+      if (!site.lat || !site.lng) return; // skip sites with missing coords
       const layerStyle  = LAYER_STYLE[site.networkLayer] || LAYER_STYLE.TRANSPORT;
       const borderColor = STATUS_BORDER[site.status] || STATUS_BORDER.OK;
       const sevColor    = SEVERITY_COLORS[site.topSeverity] || borderColor;
@@ -159,9 +166,16 @@ export default function SiteMap({ sites = [], onSiteClick }) {
     });
 
     if (!didFitBoundsRef.current && markersRef.current.length > 0) {
-      const group = L.featureGroup(markersRef.current);
-      map.fitBounds(group.getBounds().pad(0.12), { maxZoom: 7, animate: false });
-      didFitBoundsRef.current = true;
+      try {
+        const group = L.featureGroup(markersRef.current);
+        const bounds = group.getBounds();
+        if (bounds && bounds.isValid()) {
+          map.fitBounds(bounds.pad(0.12), { maxZoom: 7, animate: false });
+          didFitBoundsRef.current = true;
+        }
+      } catch (e) {
+        console.warn('[SiteMap] fitBounds skipped:', e.message);
+      }
     }
   }, [onSiteClick]);
 
@@ -201,13 +215,11 @@ export default function SiteMap({ sites = [], onSiteClick }) {
       mapRef.current = map;
       mapReadyRef.current = true;
 
-      const onReady = () => {
+      // Invalidate size after mount paint, then paint markers once Leaflet is ready
+      setTimeout(() => {
         map.invalidateSize({ animate: false });
-        renderMapContent(L, map);
-      };
-
-      setTimeout(onReady, 100);
-      setTimeout(onReady, 500);
+        renderMapContent(L, map); // paint any sites already loaded by the time Leaflet init finishes
+      }, 150);
 
       const onResize = () => map.invalidateSize({ animate: false });
       window.addEventListener('resize', onResize);
@@ -223,7 +235,7 @@ export default function SiteMap({ sites = [], onSiteClick }) {
         didFitBoundsRef.current = false;
       }
     };
-  }, [renderMapContent]);
+  }, []); // run once — no renderMapContent dependency needed here
 
   useEffect(() => {
     if (!mapRef.current || !leafletRef.current || !mapReadyRef.current) return;
