@@ -1,6 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import {
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from 'recharts';
 import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import api from '../../lib/api';
@@ -11,8 +15,8 @@ const SiteMap = dynamic(() => import('../../components/SiteMap'), {
   loading: () => <div className="loading-state" style={{ height: 600 }}><div className="spinner" /></div>,
 });
 
-const REGIONS       = ['', 'North', 'South', 'East', 'West'];
-const STATUSES      = ['', 'CRITICAL', 'WARNING', 'OK'];
+const REGIONS        = ['', 'North', 'South', 'East', 'West'];
+const STATUSES       = ['', 'CRITICAL', 'WARNING', 'OK'];
 const NETWORK_LAYERS = ['', 'RAN', 'CORE', 'TRANSPORT'];
 
 const LAYER_META = {
@@ -21,6 +25,144 @@ const LAYER_META = {
   TRANSPORT: { icon: '🔀', color: '#f59e0b', desc: 'Backhaul/Transport – Routers, Switches, OTN, Microwave' },
 };
 
+const STATUS_COLORS   = { CRITICAL: '#ef4444', WARNING: '#f59e0b', OK: '#10b981' };
+const SEV_COLORS      = { CRITICAL: '#ef4444', MEDIUM: '#f97316', LOW: '#eab308' };
+const RULE_LABEL      = {
+  RULE_1_SAME_SITE_DEVICE:   '📍 Rule 1',
+  RULE_2_SITE_WIDE_CRITICAL: '🏢 Rule 2',
+  RULE_3_STANDALONE:         '⚡ Rule 3',
+};
+
+// ── Floating Alarms Modal ────────────────────────────────────────────────────
+function AlarmsModal({ site, alarms, loading, onClose }) {
+  if (!site) return null;
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 2000,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)',
+        }}
+      />
+      {/* Modal card */}
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', zIndex: 2001,
+        transform: 'translate(-50%, -50%)',
+        width: 'min(92vw, 860px)', maxHeight: '80vh',
+        background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-lg)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)',
+          background: 'var(--bg-secondary)',
+        }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '1rem' }}>🔔 Open Alarms — {site.name}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+              📍 {site.region} Region &nbsp;·&nbsp;
+              <span className={`badge badge-${site.networkLayer?.toLowerCase()}`} style={{ fontSize: '0.7rem', padding: '1px 6px' }}>{site.networkLayer}</span>
+              &nbsp;·&nbsp;
+              <span className={`badge badge-${site.status?.toLowerCase()}`} style={{ fontSize: '0.7rem', padding: '1px 6px' }}>{site.status}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <a
+              href={`/alarms?siteId=${site.id}`}
+              className="btn btn-secondary btn-sm"
+              id={`modal-open-alarms-${site.id}`}
+            >
+              ↗ Open in Alarms Page
+            </a>
+            <button className="btn btn-secondary btn-sm" onClick={onClose} id="close-alarms-modal">✕</button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {loading ? (
+            <div className="loading-state" style={{ height: 160 }}><div className="spinner" /></div>
+          ) : !alarms || alarms.length === 0 ? (
+            <div className="empty-state" style={{ padding: '3rem' }}>
+              <div className="empty-state-icon">✅</div>
+              <div>No open alarms for this site</div>
+            </div>
+          ) : (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Severity</th>
+                    <th>Layer</th>
+                    <th>Device / Group</th>
+                    <th>Rule</th>
+                    <th>Alarms</th>
+                    <th>Start</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alarms.map((ev) => (
+                    <tr key={ev.id}>
+                      <td><span className={`badge badge-${ev.severity?.toLowerCase()}`}>{ev.severity}</span></td>
+                      <td>
+                        {ev.networkLayer
+                          ? <span className={`badge badge-${ev.networkLayer?.toLowerCase()}`}>{ev.networkLayer}</span>
+                          : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                      </td>
+                      <td style={{ fontSize: '0.82rem' }}>
+                        <div style={{ fontWeight: 500 }}>{ev.deviceId}</div>
+                        <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          {ev.groupKey?.slice(0, 36)}…
+                        </div>
+                      </td>
+                      <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        {RULE_LABEL[ev.correlationRule] || ev.correlationRule}
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{ev.alarmIds?.length || 0}</td>
+                      <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        {new Date(ev.startTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                      </td>
+                      <td>
+                        <a href={`/alarms/${ev.id}`} className="btn btn-secondary btn-sm" id={`modal-alarm-${ev.id}`}>
+                          Details →
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Recharts tooltip ─────────────────────────────────────────────────────────
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+      borderRadius: 6, padding: '0.5rem 0.75rem', fontSize: '0.8rem',
+    }}>
+      {label && <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>}
+      {payload.map((p) => (
+        <div key={p.name} style={{ color: p.color || p.fill }}>
+          {p.name}: <strong>{p.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function MapPage() {
   const [sites, setSites]           = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -28,8 +170,10 @@ export default function MapPage() {
   const [status, setStatus]         = useState('');
   const [networkLayer, setNetworkLayer] = useState('');
   const [selected, setSelected]     = useState(null);
-  // Inline alarms panel
-  const [siteAlarms, setSiteAlarms]     = useState(null);   // null = hidden, [] = empty
+
+  // Alarms modal state
+  const [modalSite, setModalSite]       = useState(null);
+  const [modalAlarms, setModalAlarms]   = useState(null);
   const [alarmsLoading, setAlarmsLoading] = useState(false);
 
   const fetchSites = useCallback(async () => {
@@ -48,15 +192,16 @@ export default function MapPage() {
     }
   }, [region, status, networkLayer]);
 
-  const fetchSiteAlarms = useCallback(async (siteId) => {
+  const openAlarmsModal = useCallback(async (site) => {
+    setModalSite(site);
+    setModalAlarms([]);
     setAlarmsLoading(true);
-    setSiteAlarms([]);
     try {
-      const res = await api.get(`/api/alarms/correlated?siteId=${siteId}&limit=10&status=OPEN`);
-      setSiteAlarms(res.data.events || []);
+      const res = await api.get(`/api/alarms/correlated?siteId=${site.id}&limit=20&status=OPEN`);
+      setModalAlarms(res.data.events || []);
     } catch (err) {
       console.error('Site alarms fetch error:', err);
-      setSiteAlarms([]);
+      setModalAlarms([]);
     } finally {
       setAlarmsLoading(false);
     }
@@ -68,6 +213,7 @@ export default function MapPage() {
     return () => clearInterval(timer);
   }, [fetchSites]);
 
+  // ── Derived chart data ────────────────────────────────────────────────────
   const statusCounts = {
     CRITICAL: sites.filter((s) => s.status === 'CRITICAL').length,
     WARNING:  sites.filter((s) => s.status === 'WARNING').length,
@@ -79,6 +225,27 @@ export default function MapPage() {
     CORE:      sites.filter((s) => s.networkLayer === 'CORE').length,
     TRANSPORT: sites.filter((s) => s.networkLayer === 'TRANSPORT').length,
   };
+
+  const statusPieData = Object.entries(statusCounts)
+    .filter(([, v]) => v > 0)
+    .map(([name, value]) => ({ name, value }));
+
+  const layerAlarmData = ['RAN', 'CORE', 'TRANSPORT'].map((layer) => ({
+    layer,
+    alarms: sites.filter((s) => s.networkLayer === layer).reduce((sum, s) => sum + (s.alarmCount || 0), 0),
+    sites:  sites.filter((s) => s.networkLayer === layer).length,
+  }));
+
+  const sevData = [
+    { name: 'CRITICAL', value: sites.filter((s) => s.topSeverity === 'CRITICAL').length, color: '#ef4444' },
+    { name: 'MEDIUM',   value: sites.filter((s) => s.topSeverity === 'MEDIUM').length,   color: '#f97316' },
+    { name: 'LOW',      value: sites.filter((s) => s.topSeverity === 'LOW').length,      color: '#eab308' },
+    { name: 'OK',       value: sites.filter((s) => !s.topSeverity || s.topSeverity === 'OK').length, color: '#10b981' },
+  ].filter((d) => d.value > 0);
+
+  const topSites = [...sites]
+    .sort((a, b) => (b.alarmCount || 0) - (a.alarmCount || 0))
+    .slice(0, 8);
 
   return (
     <AppLayout>
@@ -135,10 +302,10 @@ export default function MapPage() {
           )}
         </div>
 
+        {/* Map + Site Detail */}
         <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 300px' : '1fr', gap: '1.25rem' }}>
-          {/* Map — always rendered so Leaflet measures a stable container */}
+          {/* Map */}
           <div className="card" style={{ padding: 0, position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'clip' }}>
-            {/* Loading overlay on TOP of map — never unmount SiteMap */}
             {loading && (
               <div style={{
                 position: 'absolute', inset: 0, zIndex: 900,
@@ -149,7 +316,7 @@ export default function MapPage() {
                 <div className="spinner" />
               </div>
             )}
-            <SiteMap sites={sites} onSiteClick={(site) => { setSelected(site); setSiteAlarms(null); }} />
+            <SiteMap sites={sites} onSiteClick={(site) => setSelected(site)} />
           </div>
 
           {/* Site Detail Panel */}
@@ -190,93 +357,116 @@ export default function MapPage() {
                 </div>
               </div>
 
+              {/* VIEW ALARMS MODAL BUTTON */}
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center' }}
                 id={`map-view-alarms-${selected.id}`}
-                onClick={() => fetchSiteAlarms(selected.id)}
+                onClick={() => openAlarmsModal(selected)}
               >
-                {alarmsLoading ? '⏳ Loading…' : '🔔 View Alarms Inline'}
+                🔔 View Alarms
               </button>
-              {siteAlarms !== null && (
-                <a
-                  href={`/alarms?siteId=${selected.id}`}
-                  className="btn btn-secondary btn-sm"
-                  style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
-                  id={`map-open-alarms-page-${selected.id}`}
-                >
-                  ↗ Open in Alarms Page
-                </a>
-              )}
+              <a
+                href={`/alarms?siteId=${selected.id}`}
+                className="btn btn-secondary btn-sm"
+                style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+                id={`map-open-alarms-page-${selected.id}`}
+              >
+                ↗ Open in Alarms Page
+              </a>
             </div>
           )}
         </div>
 
-        {/* ── Inline Site Alarms Panel ──────────────────────────────────────── */}
-        {selected && siteAlarms !== null && (
-          <div className="card fade-in" style={{ marginTop: '1.25rem' }}>
-            <div className="card-header">
-              <span className="card-title">🔔 Open Alarms — {selected.name}</span>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{siteAlarms.length} events</span>
-                <button className="btn btn-secondary btn-sm" onClick={() => setSiteAlarms(null)} id="close-alarms-panel">✕ Close</button>
-              </div>
-            </div>
-            {alarmsLoading ? (
-              <div className="loading-state" style={{ height: 120 }}><div className="spinner" /></div>
-            ) : siteAlarms.length === 0 ? (
-              <div className="empty-state" style={{ padding: '2rem' }}>
-                <div className="empty-state-icon">✅</div>
-                <div>No open alarms for this site</div>
-              </div>
-            ) : (
-              <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Severity</th>
-                      <th>Layer</th>
-                      <th>Device / Group</th>
-                      <th>Rule</th>
-                      <th>Alarms</th>
-                      <th>Start</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {siteAlarms.map((ev) => (
-                      <tr key={ev.id}>
-                        <td><span className={`badge badge-${ev.severity?.toLowerCase()}`}>{ev.severity}</span></td>
-                        <td>
-                          {ev.networkLayer
-                            ? <span className={`badge badge-${ev.networkLayer?.toLowerCase()}`}>{ev.networkLayer}</span>
-                            : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                        </td>
-                        <td style={{ fontSize: '0.82rem' }}>
-                          <div style={{ fontWeight: 500 }}>{ev.deviceId}</div>
-                          <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{ev.groupKey?.slice(0, 30)}…</div>
-                        </td>
-                        <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          {ev.correlationRule === 'RULE_1_SAME_SITE_DEVICE'   ? '📍 Rule 1' :
-                           ev.correlationRule === 'RULE_2_SITE_WIDE_CRITICAL' ? '🏢 Rule 2' :
-                           ev.correlationRule === 'RULE_3_STANDALONE'         ? '⚡ Rule 3' :
-                           ev.correlationRule}
-                        </td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{ev.alarmIds?.length || 0}</td>
-                        <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          {new Date(ev.startTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                        </td>
-                        <td>
-                          <a href={`/alarms/${ev.id}`} className="btn btn-secondary btn-sm" id={`map-alarm-detail-${ev.id}`}>Details →</a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        {/* ── Analytics Charts ─────────────────────────────────────────────── */}
+        <div style={{ marginTop: '1.5rem' }}>
+          <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>
+            📊 Network Analytics
           </div>
-        )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
+
+            {/* Chart 1: Site Status Pie */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">Site Status Distribution</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{sites.length} sites</span>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={statusPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${value}`} labelLine>
+                    {statusPieData.map((entry) => (
+                      <Cell key={entry.name} fill={STATUS_COLORS[entry.name] || '#6378ff'} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 2: Alarms by Layer */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">Alarms by Network Layer</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>active alarms</span>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={layerAlarmData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                  <XAxis dataKey="layer" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="alarms" name="Alarms" radius={[4, 4, 0, 0]}>
+                    {layerAlarmData.map((entry) => (
+                      <Cell key={entry.layer} fill={LAYER_META[entry.layer]?.color || '#6378ff'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 3: Severity distribution across sites */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">Sites by Top Severity</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>top alarm per site</span>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={sevData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} label={({ name, value }) => `${name}: ${value}`}>
+                    {sevData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 4: Top 8 sites by alarm count */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">Top Sites by Alarm Count</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>top 8</span>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={topSites} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                  <YAxis type="category" dataKey="name" width={105} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="alarmCount" name="Alarms" radius={[0, 4, 4, 0]}>
+                    {topSites.map((site) => (
+                      <Cell key={site.id} fill={STATUS_COLORS[site.status] || '#6378ff'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+          </div>
+        </div>
 
         {/* Sites Table */}
         <div className="card" style={{ marginTop: '1.25rem' }}>
@@ -303,7 +493,7 @@ export default function MapPage() {
               </thead>
               <tbody>
                 {sites.map((site) => (
-                  <tr key={site.id} onClick={() => setSelected(site)} id={`site-row-${site.id}`}>
+                  <tr key={site.id} onClick={() => setSelected(site)} id={`site-row-${site.id}`} style={{ cursor: 'pointer' }}>
                     <td style={{ fontWeight: 500 }}>{site.name}</td>
                     <td>
                       <span className={`badge badge-${site.networkLayer?.toLowerCase()}`}>
@@ -331,6 +521,16 @@ export default function MapPage() {
         </div>
       </div>
       </RoleGuard>
+
+      {/* ── Alarms Modal (outside RoleGuard layout, positioned fixed) ── */}
+      {modalSite && (
+        <AlarmsModal
+          site={modalSite}
+          alarms={modalAlarms}
+          loading={alarmsLoading}
+          onClose={() => { setModalSite(null); setModalAlarms(null); }}
+        />
+      )}
     </AppLayout>
   );
 }

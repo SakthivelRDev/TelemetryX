@@ -70,9 +70,19 @@ const userController = {
     try {
       const { userId } = req.params;
       const user = await userService.getUserById(userId);
-      const permissions = await userService.getAllPermissions();
-      const effective = permissions.filter((p) => p.role === user.role);
-      return res.status(200).json({ user, permissions: effective });
+      // Use getPermissionsForRole so ADMIN always shows full access (not DB-filtered)
+      const { getPermissionsForRole } = require('../services/permissionService');
+      const permObj = await getPermissionsForRole(user.role);
+      // Convert object → array format for backward-compatibility with frontend
+      const MODULES = ['ALARM', 'MAP', 'API', 'USER'];
+      const permissions = MODULES.map((m) => ({
+        role:      user.role,
+        module:    m,
+        canRead:   Boolean(permObj[m]?.canRead),
+        canWrite:  Boolean(permObj[m]?.canWrite),
+        canDelete: Boolean(permObj[m]?.canDelete),
+      }));
+      return res.status(200).json({ user, permissions });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
