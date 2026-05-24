@@ -11,6 +11,23 @@ const MODULES  = ['ALARM', 'MAP', 'API', 'USER'];
 const ACTIONS  = ['canRead', 'canWrite', 'canDelete'];
 const ACT_LABELS = { canRead: 'READ', canWrite: 'WRITE', canDelete: 'DELETE' };
 
+/**
+ * Convert permissions array [{role, module, canRead, canWrite, canDelete}, ...]
+ * OR permissions object { ALARM: {...}, MAP: {...} }
+ * into a unified { MODULE: { canRead, canWrite, canDelete } } map.
+ */
+function buildPermMap(perms) {
+  if (!perms) return {};
+  // If it's already an object keyed by module name (from login/me)
+  if (!Array.isArray(perms)) return perms;
+  // If it's an array (from /permissions/user/:id)
+  const map = {};
+  perms.forEach((p) => {
+    map[p.module] = { canRead: Boolean(p.canRead), canWrite: Boolean(p.canWrite), canDelete: Boolean(p.canDelete) };
+  });
+  return map;
+}
+
 export default function UsersPage() {
   const { user } = useAuth();
   const isAdmin  = user?.role === 'ADMIN';

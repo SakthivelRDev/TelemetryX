@@ -5,6 +5,7 @@ import Link from 'next/link';
 import RoleGuard from '../../../components/RoleGuard';
 import AppLayout from '../../../components/AppLayout';
 import AlarmTable from '../../../components/AlarmTable';
+import { useAuth } from '../../../context/AuthContext';
 import api from '../../../lib/api';
 
 const RULE_LABELS = {
@@ -15,6 +16,8 @@ const RULE_LABELS = {
 
 export default function AlarmDetailPage() {
   const params = useParams();
+  const { user } = useAuth();
+  const canSeeRawAlarms = user?.role !== 'VIEWER'; // Viewers see correlated summary only
   const [event, setEvent]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState('');
@@ -95,21 +98,29 @@ export default function AlarmDetailPage() {
           </div>
         </div>
 
-        {/* Raw Alarms Drill-Down */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">📋 Raw Alarms ({event.rawAlarms?.length || 0})</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setExpanded((v) => !v)} id="toggle-raw-alarms">
-              {expanded ? '▲ Collapse' : '▼ Expand'}
-            </button>
+        {/* Raw Alarms Drill-Down — Admin & Engineer only */}
+        {canSeeRawAlarms && (
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">📋 Raw Alarms ({event.rawAlarms?.length || 0})</span>
+              <button className="btn btn-secondary btn-sm" onClick={() => setExpanded((v) => !v)} id="toggle-raw-alarms">
+                {expanded ? '▲ Collapse' : '▼ Expand'}
+              </button>
+            </div>
+            {expanded && (
+              <AlarmTable
+                alarms={event.rawAlarms || []}
+                emptyMessage="No raw alarms found for this event"
+              />
+            )}
           </div>
-          {expanded && (
-            <AlarmTable
-              alarms={event.rawAlarms || []}
-              emptyMessage="No raw alarms found for this event"
-            />
-          )}
-        </div>
+        )}
+        {!canSeeRawAlarms && (
+          <div className="info-banner" style={{ marginBottom: 0 }}>
+            🔒 <strong>Raw alarm data</strong> is restricted to Admin and Engineer roles.
+            Contact your administrator to escalate access.
+          </div>
+        )}
       </div>
       </RoleGuard>
     </AppLayout>

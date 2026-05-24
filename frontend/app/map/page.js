@@ -28,6 +28,9 @@ export default function MapPage() {
   const [status, setStatus]         = useState('');
   const [networkLayer, setNetworkLayer] = useState('');
   const [selected, setSelected]     = useState(null);
+  // Inline alarms panel
+  const [siteAlarms, setSiteAlarms]     = useState(null);   // null = hidden, [] = empty
+  const [alarmsLoading, setAlarmsLoading] = useState(false);
 
   const fetchSites = useCallback(async () => {
     setLoading(true);
@@ -44,6 +47,20 @@ export default function MapPage() {
       setLoading(false);
     }
   }, [region, status, networkLayer]);
+
+  const fetchSiteAlarms = useCallback(async (siteId) => {
+    setAlarmsLoading(true);
+    setSiteAlarms([]);
+    try {
+      const res = await api.get(`/api/alarms/correlated?siteId=${siteId}&limit=10&status=OPEN`);
+      setSiteAlarms(res.data.events || []);
+    } catch (err) {
+      console.error('Site alarms fetch error:', err);
+      setSiteAlarms([]);
+    } finally {
+      setAlarmsLoading(false);
+    }
+  }, []);
 
   useEffect(() => { fetchSites(); }, [fetchSites]);
   useEffect(() => {
@@ -132,7 +149,7 @@ export default function MapPage() {
                 <div className="spinner" />
               </div>
             )}
-            <SiteMap sites={sites} onSiteClick={setSelected} />
+            <SiteMap sites={sites} onSiteClick={(site) => { setSelected(site); setSiteAlarms(null); }} />
           </div>
 
           {/* Site Detail Panel */}
@@ -173,12 +190,93 @@ export default function MapPage() {
                 </div>
               </div>
 
-              <a href={`/alarms?siteId=${selected.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} id={`map-view-alarms-${selected.id}`}>
-                View Alarms →
-              </a>
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center' }}
+                id={`map-view-alarms-${selected.id}`}
+                onClick={() => fetchSiteAlarms(selected.id)}
+              >
+                {alarmsLoading ? '⏳ Loading…' : '🔔 View Alarms Inline'}
+              </button>
+              {siteAlarms !== null && (
+                <a
+                  href={`/alarms?siteId=${selected.id}`}
+                  className="btn btn-secondary btn-sm"
+                  style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+                  id={`map-open-alarms-page-${selected.id}`}
+                >
+                  ↗ Open in Alarms Page
+                </a>
+              )}
             </div>
           )}
         </div>
+
+        {/* ── Inline Site Alarms Panel ──────────────────────────────────────── */}
+        {selected && siteAlarms !== null && (
+          <div className="card fade-in" style={{ marginTop: '1.25rem' }}>
+            <div className="card-header">
+              <span className="card-title">🔔 Open Alarms — {selected.name}</span>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{siteAlarms.length} events</span>
+                <button className="btn btn-secondary btn-sm" onClick={() => setSiteAlarms(null)} id="close-alarms-panel">✕ Close</button>
+              </div>
+            </div>
+            {alarmsLoading ? (
+              <div className="loading-state" style={{ height: 120 }}><div className="spinner" /></div>
+            ) : siteAlarms.length === 0 ? (
+              <div className="empty-state" style={{ padding: '2rem' }}>
+                <div className="empty-state-icon">✅</div>
+                <div>No open alarms for this site</div>
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Severity</th>
+                      <th>Layer</th>
+                      <th>Device / Group</th>
+                      <th>Rule</th>
+                      <th>Alarms</th>
+                      <th>Start</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {siteAlarms.map((ev) => (
+                      <tr key={ev.id}>
+                        <td><span className={`badge badge-${ev.severity?.toLowerCase()}`}>{ev.severity}</span></td>
+                        <td>
+                          {ev.networkLayer
+                            ? <span className={`badge badge-${ev.networkLayer?.toLowerCase()}`}>{ev.networkLayer}</span>
+                            : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                        </td>
+                        <td style={{ fontSize: '0.82rem' }}>
+                          <div style={{ fontWeight: 500 }}>{ev.deviceId}</div>
+                          <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{ev.groupKey?.slice(0, 30)}…</div>
+                        </td>
+                        <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          {ev.correlationRule === 'RULE_1_SAME_SITE_DEVICE'   ? '📍 Rule 1' :
+                           ev.correlationRule === 'RULE_2_SITE_WIDE_CRITICAL' ? '🏢 Rule 2' :
+                           ev.correlationRule === 'RULE_3_STANDALONE'         ? '⚡ Rule 3' :
+                           ev.correlationRule}
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{ev.alarmIds?.length || 0}</td>
+                        <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          {new Date(ev.startTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                        </td>
+                        <td>
+                          <a href={`/alarms/${ev.id}`} className="btn btn-secondary btn-sm" id={`map-alarm-detail-${ev.id}`}>Details →</a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Sites Table */}
         <div className="card" style={{ marginTop: '1.25rem' }}>
