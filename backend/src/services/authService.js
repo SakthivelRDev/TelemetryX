@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
 const { userRepository } = require('../repositories/userRepository');
-const { getPermissionsForRole } = require('./permissionService');
+const { getEffectivePermissions } = require('./permissionService');
 
 const authService = {
   login: async (email, password) => {
@@ -21,7 +21,7 @@ const authService = {
       { expiresIn: '8h' }
     );
 
-    const permissions = await getPermissionsForRole(user.role);
+    const permissions = await getEffectivePermissions(user.id, user.role);
 
     return {
       token,
@@ -38,7 +38,7 @@ const authService = {
   getMe: async (userId, role) => {
     const user = await userRepository.findById(userId);
     if (!user) throw new Error('User not found');
-    const permissions = await getPermissionsForRole(role);
+    const permissions = await getEffectivePermissions(user.id, role);
     return {
       user: {
         id:    user.id,

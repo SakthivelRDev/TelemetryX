@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useAuth } from '../../context/AuthContext';
 import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import CorrelatedEventCard from '../../components/CorrelatedEventCard';
@@ -11,6 +12,7 @@ const STATUSES       = ['', 'OPEN', 'ACKNOWLEDGED', 'CLOSED'];
 const NETWORK_LAYERS = ['', 'RAN', 'CORE', 'TRANSPORT'];
 
 export default function AlarmsPage() {
+  const { canAccess } = useAuth();
   const searchParams = useSearchParams();
   const [events, setEvents]     = useState([]);
   const [total, setTotal]       = useState(0);
@@ -18,6 +20,7 @@ export default function AlarmsPage() {
   const [severity, setSeverity] = useState('');
   const [status, setStatus]     = useState('');
   const [networkLayer, setNetworkLayer] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage]         = useState(1);
   const siteId = searchParams.get('siteId') || '';
 
@@ -63,14 +66,16 @@ export default function AlarmsPage() {
               <h1 className="page-title">🔔 Correlated Alarms</h1>
               <p className="page-subtitle">{total} events found · Click to drill-down</p>
             </div>
-            <button 
-              className="btn btn-primary btn-sm" 
-              onClick={triggerIngest} 
-              id="trigger-ingest"
-              title="Manually fire one ingestion cycle: generate mock alarms → normalize → correlate → update site statuses. Same as the automatic 10s cycle."
-            >
-              ⚡ Trigger Ingest
-            </button>
+            {canAccess('ALARM', 'canWrite') && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={triggerIngest}
+                id="trigger-ingest"
+                title="Manually fire one ingestion cycle: generate mock alarms → normalize → correlate → update site statuses."
+              >
+                ⚡ Trigger Ingest
+              </button>
+            )}
           </div>
         </div>
 
@@ -84,6 +89,22 @@ export default function AlarmsPage() {
 
         {/* Filters */}
         <div className="filters-bar">
+          <input
+            type="text"
+            placeholder="🔍 Search by site, device, group, or message..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+            style={{
+              flex: 1,
+              padding: '0.6rem 0.9rem',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              fontSize: '0.9rem',
+            }}
+            id="alarms-search"
+          />
           <select value={severity} onChange={(e) => { setSeverity(e.target.value); setPage(1); }} id="filter-severity">
             {SEVERITIES.map((s) => <option key={s} value={s}>{s || 'All Severities'}</option>)}
           </select>
@@ -107,16 +128,27 @@ export default function AlarmsPage() {
 
           {loading ? (
             <div className="loading-state"><div className="spinner" /></div>
-          ) : events.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">✅</div>
-              <div>No events match the current filters</div>
-            </div>
-          ) : (
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
+          ) : (() => {
+            const filteredEvents = events.filter((e) => {
+              if (!searchTerm) return true;
+              const query = searchTerm.toLowerCase();
+              return (
+                (e.siteName || '').toLowerCase().includes(query) ||
+                (e.groupKeyLabel || '').toLowerCase().includes(query) ||
+                (e.groupKey || '').toLowerCase().includes(query) ||
+                (e.deviceId || '').toLowerCase().includes(query)
+              );
+            });
+            return filteredEvents.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">✅</div>
+                <div>No events match the current filters</div>
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
                     <th>Severity</th>
                     <th>Network Layer</th>
                     <th>Site</th>
@@ -129,7 +161,7 @@ export default function AlarmsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {events.map((e) => {
+                  {filteredEvents.map((e) => {
                     const RULE_LABELS = {
                       RULE_1_SAME_SITE_DEVICE:   '📍 Rule 1 – Device',
                       RULE_2_SITE_WIDE_CRITICAL: '🏢 Rule 2 – Site-Wide',
@@ -163,7 +195,8 @@ export default function AlarmsPage() {
                 </tbody>
               </table>
             </div>
-          )}
+            );
+          })()}
 
           {/* Pagination */}
           {total > 20 && (

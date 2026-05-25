@@ -4,32 +4,12 @@ import { useAuth } from '../../context/AuthContext';
 import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import PermissionsEditor from '../../components/PermissionsEditor';
+import UserPermissionsEditor from '../../components/UserPermissionsEditor';
 import UserForm from '../../components/UserForm';
 import api from '../../lib/api';
 
-const MODULES  = ['ALARM', 'MAP', 'API', 'USER'];
-const ACTIONS  = ['canRead', 'canWrite', 'canDelete'];
-const ACT_LABELS = { canRead: 'READ', canWrite: 'WRITE', canDelete: 'DELETE' };
-
-/**
- * Convert permissions array [{role, module, canRead, canWrite, canDelete}, ...]
- * OR permissions object { ALARM: {...}, MAP: {...} }
- * into a unified { MODULE: { canRead, canWrite, canDelete } } map.
- */
-function buildPermMap(perms) {
-  if (!perms) return {};
-  // If it's already an object keyed by module name (from login/me)
-  if (!Array.isArray(perms)) return perms;
-  // If it's an array (from /permissions/user/:id)
-  const map = {};
-  perms.forEach((p) => {
-    map[p.module] = { canRead: Boolean(p.canRead), canWrite: Boolean(p.canWrite), canDelete: Boolean(p.canDelete) };
-  });
-  return map;
-}
-
 export default function UsersPage() {
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   const isAdmin  = user?.role === 'ADMIN';
   const [users, setUsers]           = useState([]);
   const [permissions, setPermissions] = useState([]);
@@ -43,8 +23,9 @@ export default function UsersPage() {
 
   // Per-user permissions
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [userEffective, setUserEffective]   = useState(null);
+  const [userPermDetail, setUserPermDetail]   = useState(null);
   const [loadingEffective, setLoadingEffective] = useState(false);
+  const [permLoadError, setPermLoadError]     = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -65,16 +46,32 @@ export default function UsersPage() {
 
   // Load effective permissions for selected user
   const loadUserPermissions = async (userId) => {
-    if (!userId) { setUserEffective(null); return; }
+    if (!userId) {
+      setUserPermDetail(null);
+      setPermLoadError('');
+      return;
+    }
     setLoadingEffective(true);
+    setPermLoadError('');
     try {
       const res = await api.get(`/api/users/permissions/user/${userId}`);
-      setUserEffective(res.data);
+      setUserPermDetail(res.data);
     } catch (err) {
-      console.error(err);
+      console.error('User permissions load error:', err);
+      setUserPermDetail(null);
+      setPermLoadError(
+        err?.response?.data?.error
+        || 'Failed to load user permissions. Restart the backend (npx prisma generate && npm run dev).'
+      );
     } finally {
       setLoadingEffective(false);
     }
+  };
+
+  const onPermissionsChanged = () => {
+    fetchData();
+    refreshSession?.();
+    if (selectedUserId) loadUserPermissions(selectedUserId);
   };
 
   const handleCreate = async (data) => {
@@ -114,15 +111,6 @@ export default function UsersPage() {
       console.error(err);
     }
   };
-
-  // Build a quick-lookup map from permissions array for the user effective view
-  function buildPermMap(permsArray) {
-    const map = {};
-    for (const p of (permsArray || [])) {
-      map[p.module] = p;
-    }
-    return map;
-  }
 
   return (
     <AppLayout>
@@ -226,17 +214,16 @@ export default function UsersPage() {
             </div>
             <PermissionsEditor
               permissions={permissions}
-              onUpdated={fetchData}
+              onUpdated={onPermissionsChanged}
               canEdit={isAdmin}
             />
           </div>
 
         ) : (
-          /* ── User-Specific Permissions View ── */
           <div>
             <div className="info-banner">
-              <strong>User Permissions:</strong> Select a user to see their <em>effective permissions</em> — inherited from their assigned role.
-              To change a user&apos;s permissions, change their role or edit the role&apos;s permissions in the <strong>Permissions Matrix</strong> tab.
+              <strong>User-specific permissions:</strong> Overrides apply on top of the user&apos;s role.
+              Example: grant a Viewer <em>API → View</em> without changing the VIEWER role for everyone.
             </div>
 
             <div className="card" style={{ marginBottom: '1.25rem' }}>
@@ -259,67 +246,31 @@ export default function UsersPage() {
               </div>
             </div>
 
-            {userEffective && (
+            {permLoadError && (
+              <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                ⚠️ {permLoadError}
+              </div>
+            )}
+
+            {userPermDetail && (
               <div className="card fade-in">
                 <div className="card-header">
                   <div>
                     <span className="card-title">
-                      Effective Permissions for <strong style={{ color: 'var(--accent-blue)' }}>{userEffective.user?.name}</strong>
+                      Permissions for <strong style={{ color: 'var(--accent-blue)' }}>{userPermDetail.user?.name}</strong>
                     </span>
                     <div style={{ marginTop: '0.25rem' }}>
-                      <span className={`badge badge-${userEffective.user?.role?.toLowerCase()}`}>{userEffective.user?.role}</span>
-                      <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{userEffective.user?.email}</span>
+                      <span className={`badge badge-${userPermDetail.user?.role?.toLowerCase()}`}>{userPermDetail.user?.role}</span>
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{userPermDetail.user?.email}</span>
                     </div>
                   </div>
                 </div>
-
-                <div className="table-wrapper">
-                  <table className="perm-table">
-                    <thead>
-                      <tr>
-                        <th>MODULE</th>
-                        {ACTIONS.map((a) => <th key={a}>{ACT_LABELS[a]}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {MODULES.map((mod) => {
-                        const permMap = buildPermMap(userEffective.permissions);
-                        const perm    = permMap[mod] || {};
-                        return (
-                          <tr key={mod}>
-                            <td>
-                              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{mod}</span>
-                            </td>
-                            {ACTIONS.map((action) => (
-                              <td key={action}>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: 28, height: 28,
-                                  borderRadius: '50%',
-                                  background: perm[action]
-                                    ? 'rgba(16,185,129,0.15)'
-                                    : 'rgba(71,85,105,0.15)',
-                                  border: perm[action]
-                                    ? '1px solid rgba(16,185,129,0.4)'
-                                    : '1px solid rgba(71,85,105,0.3)',
-                                  fontSize: '0.85rem',
-                                }}>
-                                  {perm[action] ? '✅' : '—'}
-                                </span>
-                              </td>
-                            ))}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  💡 <strong>Tip:</strong> To modify permissions for this user, change their role in the <em>Users</em> tab or edit the {userEffective.user?.role} role permissions in the <em>Permissions Matrix</em> tab.
-                </div>
+                <UserPermissionsEditor
+                  userId={selectedUserId}
+                  detail={userPermDetail}
+                  canEdit={isAdmin}
+                  onUpdated={onPermissionsChanged}
+                />
               </div>
             )}
           </div>

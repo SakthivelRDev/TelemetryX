@@ -12,6 +12,8 @@ const router = express.Router();
 router.get('/permissions/all',              authMiddleware, rbac('USER', 'canRead'),   userController.getPermissions);
 router.put('/permissions/:role/:module',    authMiddleware, rbac('USER', 'canWrite'),  userController.updatePermission);
 router.get('/permissions/user/:userId',     authMiddleware, rbac('USER', 'canRead'),   userController.getUserEffectivePermissions);
+router.put('/permissions/user/:userId/:module', authMiddleware, rbac('USER', 'canWrite'), userController.updateUserPermission);
+router.delete('/permissions/user/:userId/:module', authMiddleware, rbac('USER', 'canWrite'), userController.clearUserPermissionOverride);
 
 // CRUD routes (parameterized — must come AFTER specific paths)
 router.get('/',       authMiddleware, rbac('USER', 'canRead'),   userController.getAll);

@@ -1,31 +1,49 @@
 'use client';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { BASE_MAP_STYLES, getSavedMapStyle, mapStyleForNavTheme, saveMapStyle } from '../lib/mapTheme';
 
-const ThemeContext = createContext({ theme: 'dark', toggleTheme: () => {} });
+const ThemeContext = createContext({
+  theme: 'dark',
+  toggleTheme: () => {},
+  mapStyle: 'dark',
+  setMapStyle: () => {},
+});
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('dark');
-  const [mounted, setMounted] = useState(false);
-
+  const [theme, setTheme]       = useState('dark');
+  const [mapStyle, setMapStyleState] = useState('dark');
   useEffect(() => {
-    const saved = localStorage.getItem('app360_theme') || 'dark';
-    setTheme(saved);
-    document.documentElement.setAttribute('data-theme', saved);
-    setMounted(true);
+    const savedTheme = localStorage.getItem('app360_theme') || 'dark';
+    const savedMap   = getSavedMapStyle();
+    setTheme(savedTheme);
+    setMapStyleState(mapStyleForNavTheme(savedTheme, savedMap));
+    document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
 
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    localStorage.setItem('app360_theme', next);
-    document.documentElement.setAttribute('data-theme', next);
-  };
+  const setMapStyle = useCallback((style) => {
+    setMapStyleState(style);
+    saveMapStyle(style);
+  }, []);
 
-  // Avoid hydration mismatch
-  if (!mounted) return <>{children}</>;
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('app360_theme', next);
+      document.documentElement.setAttribute('data-theme', next);
+
+      const savedMap = getSavedMapStyle();
+      if (BASE_MAP_STYLES.includes(savedMap)) {
+        const synced = next === 'light' ? 'light' : 'dark';
+        setMapStyleState(synced);
+        saveMapStyle(synced);
+      }
+
+      return next;
+    });
+  }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, mapStyle, setMapStyle }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -73,6 +73,19 @@ model Permission {
   @@map("permissions")
 }
 
+/// Per-user permission overrides (replaces role defaults for that module when set).
+model UserPermissionOverride {
+  id        String  @id @default(uuid())
+  userId    String
+  module    Module
+  canRead   Boolean @default(false)
+  canWrite  Boolean @default(false)
+  canDelete Boolean @default(false)
+
+  @@unique([userId, module])
+  @@map("user_permission_overrides")
+}
+
 model RawAlarm {
   id           String       @id @default(uuid())
   source       String

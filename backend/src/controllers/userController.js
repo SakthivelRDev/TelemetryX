@@ -1,4 +1,5 @@
 const userService = require('../services/userService');
+const { MODULES } = require('../config/moduleCapabilities');
 
 const userController = {
   getAll: async (req, res) => {
@@ -65,29 +66,48 @@ const userController = {
     }
   },
 
-  // Returns effective permissions for a specific user (based on their role)
   getUserEffectivePermissions: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const user = await userService.getUserById(userId);
-      // Use getPermissionsForRole so ADMIN always shows full access (not DB-filtered)
-      const { getPermissionsForRole } = require('../services/permissionService');
-      const permObj = await getPermissionsForRole(user.role);
-      // Convert object → array format for backward-compatibility with frontend
-      const MODULES = ['ALARM', 'MAP', 'API', 'USER'];
+      const detail = await userService.getUserPermissionDetail(req.params.userId);
       const permissions = MODULES.map((m) => ({
-        role:      user.role,
-        module:    m,
-        canRead:   Boolean(permObj[m]?.canRead),
-        canWrite:  Boolean(permObj[m]?.canWrite),
-        canDelete: Boolean(permObj[m]?.canDelete),
+        module: m,
+        canRead:   Boolean(detail.effective[m]?.canRead),
+        canWrite:  Boolean(detail.effective[m]?.canWrite),
+        canDelete: Boolean(detail.effective[m]?.canDelete),
+        hasOverride: Boolean(detail.overrides[m]),
       }));
-      return res.status(200).json({ user, permissions });
+      return res.status(200).json({
+        user: detail.user,
+        rolePermissions: detail.rolePermissions,
+        overrides: detail.overrides,
+        effective: detail.effective,
+        permissions,
+      });
     } catch (err) {
+      console.error('[users] getUserEffectivePermissions:', err);
       return res.status(500).json({ error: err.message });
+    }
+  },
+
+  updateUserPermission: async (req, res) => {
+    try {
+      const { userId, module } = req.params;
+      const result = await userService.updateUserPermission(userId, module, req.body);
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  },
+
+  clearUserPermissionOverride: async (req, res) => {
+    try {
+      const { userId, module } = req.params;
+      const result = await userService.clearUserPermissionOverride(userId, module);
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
     }
   },
 };
 
 module.exports = userController;
-

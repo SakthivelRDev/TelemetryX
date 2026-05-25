@@ -1,5 +1,4 @@
 /* App360 – Global Design System */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ── CSS Variables ─────────────────────────────────────────────────────────── */
 :root {
@@ -75,7 +74,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
@@ -546,11 +545,20 @@ select option { background: var(--bg-card); }
 /* ── Map ───────────────────────────────────────────────────────────────────── */
 .map-container { border-radius: var(--radius-lg); overflow: hidden; }
 
-.leaflet-map-host,
-.leaflet-map-host .leaflet-container {
+.leaflet-map-host {
+  width: 100%;
+  height: 600px;
+  min-height: 400px;
+}
+
+.leaflet-map-host.leaflet-container {
   width: 100%;
   height: 100%;
-  z-index: 0;
+  font-family: inherit;
+}
+
+.leaflet-map-host .leaflet-pane {
+  z-index: auto;
 }
 
 .leaflet-map-host .leaflet-tile-pane img {
@@ -628,7 +636,7 @@ select option { background: var(--bg-card); }
 }
 
 /* ── Misc Utilities ────────────────────────────────────────────────────────── */
-.mono { font-family: 'JetBrains Mono', monospace; }
+.mono { font-family: var(--font-mono), 'JetBrains Mono', monospace; }
 .text-muted { color: var(--text-muted); }
 .text-secondary { color: var(--text-secondary); }
 .text-accent { color: var(--accent-blue); }

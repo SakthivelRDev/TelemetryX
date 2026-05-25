@@ -9,11 +9,18 @@ import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import api from '../../lib/api';
 
-// Dynamic import to avoid SSR issues with Leaflet
-const SiteMap = dynamic(() => import('../../components/SiteMap'), {
-  ssr: false,
-  loading: () => <div className="loading-state" style={{ height: 600 }}><div className="spinner" /></div>,
-});
+// Client-only map (Leaflet needs window)
+const SiteMap = dynamic(
+  () => import(/* webpackChunkName: "site-map" */ '../../components/MapView'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="loading-state" style={{ height: 600 }}>
+        <div className="spinner" />
+      </div>
+    ),
+  }
+);
 
 const REGIONS        = ['', 'North', 'South', 'East', 'West'];
 const STATUSES       = ['', 'CRITICAL', 'WARNING', 'OK'];
@@ -166,9 +173,12 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function MapPage() {
   const [sites, setSites]           = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [lastFetched, setLastFetched] = useState(null);
   const [region, setRegion]         = useState('');
   const [status, setStatus]         = useState('');
   const [networkLayer, setNetworkLayer] = useState('');
+  const [searchTerm, setSearchTerm]  = useState('');
   const [selected, setSelected]     = useState(null);
 
   // Alarms modal state
@@ -177,7 +187,7 @@ export default function MapPage() {
   const [alarmsLoading, setAlarmsLoading] = useState(false);
 
   const fetchSites = useCallback(async () => {
-    setLoading(true);
+    if (initialLoad) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (region)       params.set('region',       region);
@@ -185,10 +195,12 @@ export default function MapPage() {
       if (networkLayer) params.set('networkLayer', networkLayer);
       const res = await api.get(`/api/map/sites?${params}`);
       setSites(res.data.sites || []);
+      setLastFetched(new Date());
     } catch (err) {
       console.error('Map fetch error:', err);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [region, status, networkLayer]);
 
@@ -214,16 +226,25 @@ export default function MapPage() {
   }, [fetchSites]);
 
   // ── Derived chart data ────────────────────────────────────────────────────
+  const displayedSites = sites.filter((site) => {
+    if (!searchTerm) return true;
+    const query = searchTerm.toLowerCase();
+    return (
+      site.name.toLowerCase().includes(query) ||
+      site.region.toLowerCase().includes(query)
+    );
+  });
+
   const statusCounts = {
-    CRITICAL: sites.filter((s) => s.status === 'CRITICAL').length,
-    WARNING:  sites.filter((s) => s.status === 'WARNING').length,
-    OK:       sites.filter((s) => s.status === 'OK').length,
+    CRITICAL: displayedSites.filter((s) => s.status === 'CRITICAL').length,
+    WARNING:  displayedSites.filter((s) => s.status === 'WARNING').length,
+    OK:       displayedSites.filter((s) => s.status === 'OK').length,
   };
 
   const layerCounts = {
-    RAN:       sites.filter((s) => s.networkLayer === 'RAN').length,
-    CORE:      sites.filter((s) => s.networkLayer === 'CORE').length,
-    TRANSPORT: sites.filter((s) => s.networkLayer === 'TRANSPORT').length,
+    RAN:       displayedSites.filter((s) => s.networkLayer === 'RAN').length,
+    CORE:      displayedSites.filter((s) => s.networkLayer === 'CORE').length,
+    TRANSPORT: displayedSites.filter((s) => s.networkLayer === 'TRANSPORT').length,
   };
 
   const statusPieData = Object.entries(statusCounts)
@@ -232,18 +253,18 @@ export default function MapPage() {
 
   const layerAlarmData = ['RAN', 'CORE', 'TRANSPORT'].map((layer) => ({
     layer,
-    alarms: sites.filter((s) => s.networkLayer === layer).reduce((sum, s) => sum + (s.alarmCount || 0), 0),
-    sites:  sites.filter((s) => s.networkLayer === layer).length,
+    alarms: displayedSites.filter((s) => s.networkLayer === layer).reduce((sum, s) => sum + (s.alarmCount || 0), 0),
+    sites:  displayedSites.filter((s) => s.networkLayer === layer).length,
   }));
 
   const sevData = [
-    { name: 'CRITICAL', value: sites.filter((s) => s.topSeverity === 'CRITICAL').length, color: '#ef4444' },
-    { name: 'MEDIUM',   value: sites.filter((s) => s.topSeverity === 'MEDIUM').length,   color: '#f97316' },
-    { name: 'LOW',      value: sites.filter((s) => s.topSeverity === 'LOW').length,      color: '#eab308' },
-    { name: 'OK',       value: sites.filter((s) => !s.topSeverity || s.topSeverity === 'OK').length, color: '#10b981' },
+    { name: 'CRITICAL', value: displayedSites.filter((s) => s.topSeverity === 'CRITICAL').length, color: '#ef4444' },
+    { name: 'MEDIUM',   value: displayedSites.filter((s) => s.topSeverity === 'MEDIUM').length,   color: '#f97316' },
+    { name: 'LOW',      value: displayedSites.filter((s) => s.topSeverity === 'LOW').length,      color: '#eab308' },
+    { name: 'OK',       value: displayedSites.filter((s) => !s.topSeverity || s.topSeverity === 'OK').length, color: '#10b981' },
   ].filter((d) => d.value > 0);
 
-  const topSites = [...sites]
+  const topSites = [...displayedSites]
     .sort((a, b) => (b.alarmCount || 0) - (a.alarmCount || 0))
     .slice(0, 8);
 
@@ -256,11 +277,13 @@ export default function MapPage() {
             <div>
               <h1 className="page-title">🗺 Network Map</h1>
               <p className="page-subtitle">
-                Telecom site topology – India &nbsp;·&nbsp;
-                <span style={{ color: 'var(--accent-cyan)' }}>📡 RAN</span> ·{' '}
-                <span style={{ color: '#a855f7' }}>🖥 CORE</span> ·{' '}
-                <span style={{ color: '#f59e0b' }}>🔀 TRANSPORT</span>
-                &nbsp;&nbsp;<span className="pulse-dot" />
+                Live API data · auto-refresh 15s
+                {lastFetched && (
+                  <span style={{ marginLeft: 8, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    · updated {lastFetched.toLocaleTimeString('en-IN')}
+                  </span>
+                )}
+                &nbsp;<span className="pulse-dot" />
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -287,6 +310,22 @@ export default function MapPage() {
 
         {/* Filters */}
         <div className="filters-bar">
+          <input
+            type="text"
+            placeholder="🔍 Search by site name or region..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              flex: 1,
+              padding: '0.6rem 0.9rem',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              fontSize: '0.9rem',
+            }}
+            id="map-search"
+          />
           <select value={region} onChange={(e) => setRegion(e.target.value)} id="map-filter-region">
             {REGIONS.map((r) => <option key={r} value={r}>{r || 'All Regions'}</option>)}
           </select>
@@ -305,8 +344,8 @@ export default function MapPage() {
         {/* Map + Site Detail */}
         <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 300px' : '1fr', gap: '1.25rem' }}>
           {/* Map */}
-          <div className="card" style={{ padding: 0, position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'clip' }}>
-            {loading && (
+          <div className="card" style={{ padding: 0, position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            {loading && initialLoad && (
               <div style={{
                 position: 'absolute', inset: 0, zIndex: 900,
                 background: 'rgba(10,14,26,0.6)',
@@ -316,7 +355,10 @@ export default function MapPage() {
                 <div className="spinner" />
               </div>
             )}
-            <SiteMap sites={sites} onSiteClick={(site) => setSelected(site)} />
+            <SiteMap 
+              sites={displayedSites} 
+              onSiteClick={(site) => setSelected(site)} 
+            />
           </div>
 
           {/* Site Detail Panel */}

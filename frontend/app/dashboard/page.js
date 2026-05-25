@@ -49,7 +49,7 @@ const CUSTOM_TOOLTIP_STYLE = {
 };
 
 export default function DashboardPage() {
-  const { user }    = useAuth();
+  const { user, canAccess } = useAuth();
   const [stats, setStats]     = useState(null);
   const [series, setSeries]   = useState([]);
   const [events, setEvents]   = useState([]);
@@ -137,7 +137,7 @@ export default function DashboardPage() {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <span className={`badge badge-${user?.role?.toLowerCase()}`}>{user?.role}</span>
-                {user?.role !== 'VIEWER' && (
+                {canAccess('ALARM', 'canWrite') && (
                   <button className="btn btn-secondary btn-sm" onClick={handleReset} disabled={resetting} id="reset-data-btn" title="Close all stale open events and reset site statuses">
                     {resetting ? '⏳ Resetting…' : '🔄 Reset Data'}
                   </button>
