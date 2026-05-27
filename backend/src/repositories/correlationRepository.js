@@ -4,11 +4,12 @@ const prisma = new PrismaClient();
 const correlationRepository = {
   create: (data) => prisma.correlatedEvent.create({ data }),
 
-  findAll: ({ page = 1, limit = 20, severity, status, siteId, networkLayer } = {}) => {
+  findAll: ({ page = 1, limit = 20, severity, status, siteId, siteIds, networkLayer } = {}) => {
     const where = {};
     if (severity)     where.severity     = severity;
     if (status)       where.status       = status;
     if (siteId)       where.siteId       = siteId;
+    if (siteIds?.length) where.siteId    = { in: siteIds };
     if (networkLayer) where.networkLayer = networkLayer;
 
     return prisma.correlatedEvent.findMany({

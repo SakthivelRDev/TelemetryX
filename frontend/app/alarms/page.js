@@ -9,6 +9,7 @@ import api from '../../lib/api';
 
 const SEVERITIES     = ['', 'CRITICAL', 'MEDIUM', 'LOW'];
 const STATUSES       = ['', 'OPEN', 'ACKNOWLEDGED', 'CLOSED'];
+const REGIONS        = ['', 'North', 'South', 'East', 'West'];
 const NETWORK_LAYERS = ['', 'RAN', 'CORE', 'TRANSPORT'];
 
 export default function AlarmsPage() {
@@ -19,6 +20,7 @@ export default function AlarmsPage() {
   const [loading, setLoading]   = useState(true);
   const [severity, setSeverity] = useState('');
   const [status, setStatus]     = useState('');
+  const [region, setRegion]     = useState('');
   const [networkLayer, setNetworkLayer] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage]         = useState(1);
@@ -33,6 +35,7 @@ export default function AlarmsPage() {
         ...(severity && { severity }),
         ...(status && { status }),
         ...(siteId && { siteId }),
+        ...(region && { region }),
         ...(networkLayer && { networkLayer }),
       });
       const res = await api.get(`/api/alarms/correlated?${params}`);
@@ -43,7 +46,7 @@ export default function AlarmsPage() {
     } finally {
       setLoading(false);
     }
-  }, [severity, status, siteId, networkLayer, page]);
+  }, [severity, status, siteId, region, networkLayer, page]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
@@ -111,11 +114,17 @@ export default function AlarmsPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} id="filter-status">
             {STATUSES.map((s) => <option key={s} value={s}>{s || 'All Statuses'}</option>)}
           </select>
+          <select value={region} onChange={(e) => { setRegion(e.target.value); setPage(1); }} id="filter-region">
+            {REGIONS.map((r) => <option key={r} value={r}>{r || 'All Regions'}</option>)}
+          </select>
           <select value={networkLayer} onChange={(e) => { setNetworkLayer(e.target.value); setPage(1); }} id="filter-network-layer">
             {NETWORK_LAYERS.map((l) => <option key={l} value={l}>{l || 'All Layers'}</option>)}
           </select>
           {siteId && (
             <span className="badge badge-info">Filtered by site</span>
+          )}
+          {region && (
+            <span className="badge badge-info">Region: {region}</span>
           )}
         </div>
 

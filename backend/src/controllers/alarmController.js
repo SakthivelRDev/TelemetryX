@@ -39,13 +39,14 @@ const alarmController = {
 
   getCorrelated: async (req, res) => {
     try {
-      const { page = 1, limit = 20, severity, status, siteId, networkLayer } = req.query;
+      const { page = 1, limit = 20, severity, status, siteId, region, networkLayer } = req.query;
       const result = await alarmService.getCorrelatedEvents({
         page: parseInt(page),
         limit: parseInt(limit),
         severity,
         status,
         siteId,
+        region,
         networkLayer,
       });
       return res.status(200).json(result);

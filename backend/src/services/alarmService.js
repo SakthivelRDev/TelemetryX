@@ -29,7 +29,7 @@ const alarmService = {
     return alarm;
   },
 
-  getCorrelatedEvents: async ({ page, limit, severity, status, siteId, networkLayer } = {}) => {
+  getCorrelatedEvents: async ({ page, limit, severity, status, siteId, region, networkLayer } = {}) => {
     const where = {
       ...(severity     && { severity }),
       ...(status       && { status }),
@@ -37,8 +37,21 @@ const alarmService = {
       ...(networkLayer && { networkLayer }),
     };
 
+    let regionSiteIds = [];
+    if (!siteId && region) {
+      const sitesInRegion = await prisma.site.findMany({
+        where: { region },
+        select: { id: true },
+      });
+      regionSiteIds = sitesInRegion.map((s) => s.id);
+      if (regionSiteIds.length === 0) {
+        return { events: [], total: 0, page, limit };
+      }
+      where.siteId = { in: regionSiteIds };
+    }
+
     const [events, total] = await Promise.all([
-      correlationRepository.findAll({ page, limit, severity, status, siteId, networkLayer }),
+      correlationRepository.findAll({ page, limit, severity, status, siteId, siteIds: regionSiteIds, networkLayer }),
       correlationRepository.count(where),
     ]);
 
