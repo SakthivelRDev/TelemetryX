@@ -6,9 +6,9 @@ export const MODULE_CAPABILITIES = {
     description: 'View alarms & dashboard; manage ingest/reset',
   },
   MAP: {
-    actions: ['canRead'],
-    labels: { canRead: 'View' },
-    description: 'View network map & site topology',
+    actions: ['canRead', 'canWrite'],
+    labels: { canRead: 'View', canWrite: 'Region View' },
+    description: 'View network map & site topology; Region View = auto-filter by location',
   },
   API: {
     actions: ['canRead', 'canWrite', 'canDelete'],

@@ -65,7 +65,8 @@ const alarmController = {
 
   getDashboardStats: async (req, res) => {
     try {
-      const stats = await alarmService.getDashboardStats();
+      const range = req.query.range || 'all';
+      const stats = await alarmService.getDashboardStats(range);
       return res.status(200).json(stats);
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -75,9 +76,11 @@ const alarmController = {
   getTimeSeries: async (req, res) => {
     try {
       const range  = req.query.range || '12h';
-      const allowed = ['1h', '6h', '12h', '24h', '7d'];
+      const networkLayer = req.query.networkLayer || null;
+      const allowed = ['1h', '6h', '12h', '24h', '7d', 'all'];
       const series = await alarmService.getAlarmTimeSeries(
-        allowed.includes(range) ? range : '12h'
+        allowed.includes(range) ? range : '12h',
+        networkLayer
       );
       return res.status(200).json(series);
     } catch (err) {
@@ -99,6 +102,10 @@ const alarmController = {
 
       // Reset all sites to OK
       await prisma.site.updateMany({ data: { status: 'OK' } });
+
+      // Also clear raw alarms so dashboard 'totalRaw' resets to zero
+      // This removes accumulated raw alarm records during an explicit admin reset.
+      await prisma.rawAlarm.deleteMany({});
 
 
       await prisma.$disconnect();

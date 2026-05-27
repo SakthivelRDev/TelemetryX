@@ -8,6 +8,8 @@ import {
 import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import api from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { detectUserRegion } from '../../lib/geoRegion';
 
 // Client-only map (Leaflet needs window)
 const SiteMap = dynamic(
@@ -171,6 +173,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function MapPage() {
+  const { user, canAccess }         = useAuth();
   const [sites, setSites]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -180,6 +183,11 @@ export default function MapPage() {
   const [networkLayer, setNetworkLayer] = useState('');
   const [searchTerm, setSearchTerm]  = useState('');
   const [selected, setSelected]     = useState(null);
+
+  // Geo-region auto-filter state
+  const [geoRegion, setGeoRegion]         = useState(null);   // detected region name
+  const [geoBannerOpen, setGeoBannerOpen] = useState(true);   // banner visibility
+  const [geoLoading, setGeoLoading]       = useState(false);
 
   // Alarms modal state
   const [modalSite, setModalSite]       = useState(null);
@@ -225,6 +233,25 @@ export default function MapPage() {
     return () => clearInterval(timer);
   }, [fetchSites]);
 
+  // ── Geo-region auto-filter (Engineer / Viewer with Region View permission) ──
+  const isRegionViewEnabled = canAccess('MAP', 'canWrite');
+  const isNonAdmin          = user?.role === 'ENGINEER' || user?.role === 'VIEWER';
+
+  useEffect(() => {
+    if (!isNonAdmin || !isRegionViewEnabled) return;
+    setGeoLoading(true);
+    detectUserRegion().then((result) => {
+      if (result?.region) {
+        setGeoRegion(result.region);
+        setRegion(result.region);   // pre-fill the filter dropdown
+        setGeoBannerOpen(true);
+      }
+      setGeoLoading(false);
+    });
+  // Run only once when role/permission are known
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNonAdmin, isRegionViewEnabled]);
+
   // ── Derived chart data ────────────────────────────────────────────────────
   const displayedSites = sites.filter((site) => {
     if (!searchTerm) return true;
@@ -268,10 +295,63 @@ export default function MapPage() {
     .sort((a, b) => (b.alarmCount || 0) - (a.alarmCount || 0))
     .slice(0, 8);
 
+  useEffect(() => {
+    if (!selected) return;
+    const stillVisible = displayedSites.some((s) => s.id === selected.id);
+    if (!stillVisible) setSelected(null);
+  }, [displayedSites, selected]);
+
   return (
     <AppLayout>
       <RoleGuard module="MAP" redirect>
       <div className="fade-in">
+
+        {/* ── Geo-Region Banner ── */}
+        {geoRegion && geoBannerOpen && isRegionViewEnabled && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, rgba(99,120,255,0.12), rgba(34,211,238,0.10))',
+            border: '1px solid rgba(99,120,255,0.3)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.6rem 1rem',
+            marginBottom: '1rem',
+            fontSize: '0.85rem',
+            color: 'var(--text-primary)',
+          }}>
+            <span>
+              <span style={{ marginRight: 6 }}>📍</span>
+              <strong>Region View active</strong>
+              {' '}— showing sites in the{' '}
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>{geoRegion}</span>
+              {' '}region based on your current location.
+              <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>
+                Use the filter above to view other regions.
+              </span>
+            </span>
+            <button
+              id="geo-banner-dismiss"
+              onClick={() => setGeoBannerOpen(false)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1,
+                padding: '0 4px', marginLeft: 12,
+              }}
+              title="Dismiss"
+            >✕</button>
+          </div>
+        )}
+
+        {/* ── Geo-loading indicator ── */}
+        {geoLoading && (
+          <div style={{
+            fontSize: '0.8rem', color: 'var(--text-muted)',
+            marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+            Detecting your region…
+          </div>
+        )}
+
         <div className="page-header">
           <div className="flex-between">
             <div>
@@ -326,7 +406,16 @@ export default function MapPage() {
             }}
             id="map-search"
           />
-          <select value={region} onChange={(e) => setRegion(e.target.value)} id="map-filter-region">
+          <select
+            value={region}
+            onChange={(e) => {
+              setRegion(e.target.value);
+              // If user manually clears back to all-regions, also clear geo marker
+              if (!e.target.value) setGeoRegion(null);
+            }}
+            id="map-filter-region"
+            style={geoRegion && region === geoRegion ? { borderColor: 'var(--accent-cyan)', boxShadow: '0 0 0 2px rgba(34,211,238,0.2)' } : {}}
+          >
             {REGIONS.map((r) => <option key={r} value={r}>{r || 'All Regions'}</option>)}
           </select>
           <select value={status} onChange={(e) => setStatus(e.target.value)} id="map-filter-status">
@@ -431,11 +520,20 @@ export default function MapPage() {
             <div className="card">
               <div className="card-header">
                 <span className="card-title">Site Status Distribution</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{sites.length} sites</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{displayedSites.length} sites</span>
               </div>
               <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={statusPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${value}`} labelLine>
+                <PieChart margin={{ top: 18, right: 44, bottom: 18, left: 44 }}>
+                  <Pie
+                    data={statusPieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={62}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    labelLine={false}
+                  >
                     {statusPieData.map((entry) => (
                       <Cell key={entry.name} fill={STATUS_COLORS[entry.name] || '#6378ff'} />
                     ))}
@@ -474,8 +572,18 @@ export default function MapPage() {
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>top alarm per site</span>
               </div>
               <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={sevData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} label={({ name, value }) => `${name}: ${value}`}>
+                <PieChart margin={{ top: 18, right: 28, bottom: 16, left: 28 }}>
+                  <Pie
+                    data={sevData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={68}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    labelLine={false}
+                  >
                     {sevData.map((entry) => (
                       <Cell key={entry.name} fill={entry.color} />
                     ))}
@@ -513,7 +621,7 @@ export default function MapPage() {
         {/* Sites Table */}
         <div className="card" style={{ marginTop: '1.25rem' }}>
           <div className="card-header">
-            <span className="card-title">Site Inventory ({sites.length})</span>
+            <span className="card-title">Site Inventory ({displayedSites.length})</span>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {Object.entries(layerCounts).map(([k, v]) => (
                 <span key={k} className={`badge badge-${k.toLowerCase()}`}>{k}: {v}</span>
@@ -534,7 +642,7 @@ export default function MapPage() {
                 </tr>
               </thead>
               <tbody>
-                {sites.map((site) => (
+                {displayedSites.map((site) => (
                   <tr key={site.id} onClick={() => setSelected(site)} id={`site-row-${site.id}`} style={{ cursor: 'pointer' }}>
                     <td style={{ fontWeight: 500 }}>{site.name}</td>
                     <td>

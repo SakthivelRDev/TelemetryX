@@ -1,5 +1,7 @@
 const alarmRepository    = require('../repositories/alarmRepository');
 const correlationRepository = require('../repositories/correlationRepository');
+const { PrismaClient }   = require('@prisma/client');
+const prisma             = new PrismaClient();
 
 /**
  * Correlation Service – AIOps Engine
@@ -33,31 +35,64 @@ function worstSeverity(severities) {
 }
 
 /**
+ * Recompute and persist site.status based on the site's current OPEN events.
+ *
+ *   CRITICAL open event  → site.status = CRITICAL
+ *   MEDIUM / LOW only    → site.status = WARNING
+ *   No open events       → site.status = OK
+ *
+ * This is called after every Rule 1/2/3 create/merge and after auto-close.
+ */
+async function updateSiteStatus(siteId) {
+  if (!siteId) return;
+
+  const openEvents = await prisma.correlatedEvent.findMany({
+    where:  { siteId, status: 'OPEN' },
+    select: { severity: true },
+  });
+
+  let newStatus = 'OK';
+  if (openEvents.length > 0) {
+    const worst = worstSeverity(openEvents.map((e) => e.severity));
+    newStatus = worst === 'CRITICAL' ? 'CRITICAL' : 'WARNING';
+  }
+
+  // updateMany silently skips if siteId no longer exists (e.g. orphaned events after a reseed)
+  await prisma.site.updateMany({
+    where: { id: siteId },
+    data:  { status: newStatus },
+  });
+}
+
+/**
  * Auto-close correlated events older than 15 minutes.
  * This prevents events from accumulating indefinitely and ensures
  * the map/alarms view reflects current network state.
+ * After closing, recomputes each affected site's status.
  */
 async function autoCloseOldEvents() {
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000);
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
 
   const oldOpen = await prisma.correlatedEvent.findMany({
-    where: { status: 'OPEN', startTime: { lt: fifteenMinAgo } },
+    where:  { status: 'OPEN', startTime: { lt: fifteenMinAgo } },
+    select: { id: true, siteId: true },
   });
 
-  for (const event of oldOpen) {
-    await prisma.correlatedEvent.update({
-      where: { id: event.id },
-      data: { status: 'CLOSED' },
-    });
-  }
+  if (oldOpen.length === 0) return;
 
-  if (oldOpen.length > 0) {
-    console.log(`[CORRELATE] Auto-closed ${oldOpen.length} stale events (>15 min)`);
-  }
+  // Bulk-close all stale events
+  await prisma.correlatedEvent.updateMany({
+    where: { id: { in: oldOpen.map((e) => e.id) } },
+    data:  { status: 'CLOSED' },
+  });
 
-  await prisma.$disconnect();
+  console.log(`[CORRELATE] Auto-closed ${oldOpen.length} stale events (>15 min)`);
+
+  // Recompute status for every affected site
+  const affectedSiteIds = [...new Set(oldOpen.map((e) => e.siteId).filter(Boolean))];
+  for (const siteId of affectedSiteIds) {
+    await updateSiteStatus(siteId);
+  }
 }
 
 /**
@@ -77,10 +112,9 @@ async function correlateAlarms(newAlarms) {
     const { id, siteId, deviceId, severity, timestamp, networkLayer } = alarm;
 
     // ── RULE 1: Same site + same device, PREVIOUS alarms within 5 min ────────
-    // Exclude the current alarm itself to avoid false Rule 1 matches on first seen
     const rule1Key = `${siteId}:${deviceId}`;
     const recentSameDevice = await alarmRepository.findBySiteAndDevice(siteId, deviceId, fiveMinAgo);
-    const prevSameDevice   = recentSameDevice.filter((a) => a.id !== id); // exclude self
+    const prevSameDevice   = recentSameDevice.filter((a) => a.id !== id);
 
     if (prevSameDevice.length >= 1) {
       const existingEvent = await correlationRepository.findOpenByGroupKey(rule1Key);
@@ -90,9 +124,9 @@ async function correlateAlarms(newAlarms) {
         const escalatedSeverity = getHigherSeverity(existingEvent.severity, severity);
 
         await correlationRepository.update(existingEvent.id, {
-          alarmIds: mergedAlarmIds,
-          severity: escalatedSeverity,
-          endTime:  new Date(),
+          alarmIds:  mergedAlarmIds,
+          severity:  escalatedSeverity,
+          endTime:   new Date(),
           updatedAt: new Date(),
         });
 
@@ -116,23 +150,23 @@ async function correlateAlarms(newAlarms) {
 
         console.log(`[CORRELATE] Rule 1 CREATE → ${rule1Key} (${alarmIds.length} alarms, ${severity})`);
       }
-      continue; // Rule 1 handled this alarm
+
+      // ✅ FIX: Reflect event severity on the site record
+      await updateSiteStatus(siteId);
+      continue;
     }
 
     // ── RULE 2: Same site, multiple CRITICAL/MEDIUM devices within 10 min ────
-    // Fires when the current alarm is on a site that already has 1+ alarms from
-    // DIFFERENT devices in the last 10 min (regardless of severity filter)
-    const rule2Key  = `${siteId}:MULTI`;
+    const rule2Key     = `${siteId}:MULTI`;
     const siteCritical = await alarmRepository.findBySiteInWindow(siteId, tenMinAgo);
-    // Count distinct devices (other than current alarm's device)
     const otherDevices = [...new Set(siteCritical.filter((a) => a.id !== id && a.deviceId !== deviceId).map((a) => a.deviceId))];
 
     if (['CRITICAL', 'MEDIUM'].includes(severity) && otherDevices.length >= 1) {
       const allAlarmsInWindow = siteCritical;
-      const existingEvent = await correlationRepository.findOpenByGroupKey(rule2Key);
-      const allSeverities  = allAlarmsInWindow.map((a) => a.severity);
+      const existingEvent     = await correlationRepository.findOpenByGroupKey(rule2Key);
+      const allSeverities     = allAlarmsInWindow.map((a) => a.severity);
       allSeverities.push(severity);
-      const actualSeverity = worstSeverity(allSeverities);
+      const actualSeverity    = worstSeverity(allSeverities);
 
       if (existingEvent) {
         const mergedAlarmIds    = [...new Set([...existingEvent.alarmIds, id])];
@@ -164,11 +198,14 @@ async function correlateAlarms(newAlarms) {
 
         console.log(`[CORRELATE] Rule 2 CREATE → ${rule2Key} (site-wide, ${otherDevices.length + 1} devices, ${actualSeverity})`);
       }
-      continue; // Rule 2 handled this alarm
+
+      // ✅ FIX: Reflect event severity on the site record
+      await updateSiteStatus(siteId);
+      continue;
     }
 
     // ── RULE 3: Standalone alarm – first time seeing this device ─────────────
-    const rule3Key = `${siteId}:${deviceId}:STANDALONE`;
+    const rule3Key           = `${siteId}:${deviceId}:STANDALONE`;
     const existingStandalone = await correlationRepository.findOpenByGroupKey(rule3Key);
 
     if (existingStandalone) {
@@ -195,6 +232,9 @@ async function correlateAlarms(newAlarms) {
 
       console.log(`[CORRELATE] Rule 3 STANDALONE → ${rule3Key} (${severity})`);
     }
+
+    // ✅ FIX: Reflect event severity on the site record
+    await updateSiteStatus(siteId);
   }
 }
 

@@ -73,19 +73,53 @@ const alarmService = {
     return { ...event, rawAlarms, site };
   },
 
-  getDashboardStats: async () => {
-    const [totalRaw, openEvents, criticalSites, allSites] = await Promise.all([
-      alarmRepository.count(),
-      correlationRepository.countOpen(),
-      prisma.site.count({ where: { status: 'CRITICAL' } }),
-      prisma.site.findMany({ select: { status: true } }),
+  getDashboardStats: async (range = 'all') => {
+    // Build timestamp filter for rawAlarm queries
+    const RANGE_MS = {
+      '1h':  1 * 60 * 60 * 1000,
+      '6h':  6 * 60 * 60 * 1000,
+      '12h': 12 * 60 * 60 * 1000,
+      '24h': 24 * 60 * 60 * 1000,
+      '7d':  7 * 24 * 60 * 60 * 1000,
+    };
+
+    const cutoff = range !== 'all' && RANGE_MS[range]
+      ? new Date(Date.now() - RANGE_MS[range])
+      : null;
+
+    // rawAlarm timestamp filter (empty = no restriction)
+    const timeFilter = cutoff ? { timestamp: { gte: cutoff } } : {};
+
+    // correlatedEvent startTime filter
+    const eventTimeFilter = cutoff ? { startTime: { gte: cutoff } } : {};
+
+    const [totalRaw, openEvents, allSites] = await Promise.all([
+      prisma.rawAlarm.count({ where: timeFilter }),
+      prisma.correlatedEvent.count({ where: { status: 'OPEN', ...eventTimeFilter } }),
+      prisma.site.findMany({ select: { id: true, status: true, networkLayer: true } }),
     ]);
+
+    // criticalSites: if a range is active, count distinct sites that had a CRITICAL alarm in the window
+    // otherwise fall back to current site.status
+    let criticalSites;
+    if (cutoff) {
+      const critRows = await prisma.rawAlarm.findMany({
+        where: { severity: 'CRITICAL', timestamp: { gte: cutoff } },
+        select: { siteId: true },
+        distinct: ['siteId'],
+      });
+      criticalSites = critRows.filter((r) => r.siteId).length;
+    } else {
+      criticalSites = allSites.filter((s) => s.status === 'CRITICAL').length;
+    }
 
     // Severity breakdown (3-level)
     const severities = ['CRITICAL', 'MEDIUM', 'LOW'];
     const severityCounts = {};
     for (const s of severities) {
-      severityCounts[s] = await alarmRepository.countBySeverity(s);
+      severityCounts[s] = await prisma.rawAlarm.count({
+        where: { ...timeFilter, severity: s },
+      });
     }
 
     // Site status breakdown
@@ -95,6 +129,27 @@ const alarmService = {
       OK:       allSites.filter((s) => s.status === 'OK').length,
     };
 
+    const layerCounts = {
+      RAN:       allSites.filter((s) => s.networkLayer === 'RAN').length,
+      CORE:      allSites.filter((s) => s.networkLayer === 'CORE').length,
+      TRANSPORT: allSites.filter((s) => s.networkLayer === 'TRANSPORT').length,
+    };
+
+    const layerSeverityCounts = {};
+    const layers = ['RAN', 'CORE', 'TRANSPORT'];
+    for (const layer of layers) {
+      layerSeverityCounts[layer] = {};
+      for (const severity of severities) {
+        layerSeverityCounts[layer][severity] = await prisma.rawAlarm.count({
+          where: {
+            ...timeFilter,
+            networkLayer: layer,
+            severity,
+          },
+        });
+      }
+    }
+
     return {
       totalRaw,
       openEvents,
@@ -102,21 +157,45 @@ const alarmService = {
       criticalAlarms: severityCounts.CRITICAL,
       severityCounts,
       siteStatuses,
+      layerCounts,
+      layerSeverityCounts,
     };
   },
 
   // Returns alarm counts grouped by time bucket for a configurable range
-  getAlarmTimeSeries: async (range = '12h') => {
+  getAlarmTimeSeries: async (range = '12h', networkLayer = null) => {
     const RANGE_CONFIG = {
-      '1h':  { buckets: 12, msPerBucket: 5 * 60 * 1000,        label: (d) => `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}` },
+      '1h':  { buckets: 12, msPerBucket: 5 * 60 * 1000,         label: (d) => `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}` },
       '6h':  { buckets: 6,  msPerBucket: 60 * 60 * 1000,         label: (d) => `${d.getHours().toString().padStart(2, '0')}:00` },
-      '12h': { buckets: 12, msPerBucket: 60 * 60 * 1000,        label: (d) => `${d.getHours().toString().padStart(2, '0')}:00` },
-      '24h': { buckets: 24, msPerBucket: 60 * 60 * 1000,        label: (d) => `${d.getHours().toString().padStart(2, '0')}:00` },
-      '7d':  { buckets: 7,  msPerBucket: 24 * 60 * 60 * 1000,   label: (d) => d.toLocaleDateString('en-IN', { weekday: 'short' }) },
+      '12h': { buckets: 12, msPerBucket: 60 * 60 * 1000,         label: (d) => `${d.getHours().toString().padStart(2, '0')}:00` },
+      '24h': { buckets: 24, msPerBucket: 60 * 60 * 1000,         label: (d) => `${d.getHours().toString().padStart(2, '0')}:00` },
+      '7d':  { buckets: 7,  msPerBucket: 24 * 60 * 60 * 1000,    label: (d) => d.toLocaleDateString('en-IN', { weekday: 'short' }) },
     };
 
-    const config = RANGE_CONFIG[range] || RANGE_CONFIG['12h'];
-    const now    = new Date();
+    const now = new Date();
+    let config = RANGE_CONFIG[range] || RANGE_CONFIG['12h'];
+
+    if (range === 'all') {
+      const firstAlarm = await prisma.rawAlarm.findFirst({
+        orderBy: { timestamp: 'asc' },
+        select: { timestamp: true },
+      });
+
+      if (!firstAlarm?.timestamp) {
+        return { series: [], range };
+      }
+
+      const spanMs = Math.max(now.getTime() - firstAlarm.timestamp.getTime(), 60 * 60 * 1000);
+      const targetBuckets = 30;
+      const bucketMs = Math.max(Math.ceil(spanMs / targetBuckets), 60 * 60 * 1000);
+
+      config = {
+        buckets: Math.min(targetBuckets, Math.ceil(spanMs / bucketMs)),
+        msPerBucket: bucketMs,
+        label: (d) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+      };
+    }
+
     const series = [];
 
     for (let i = config.buckets - 1; i >= 0; i--) {
@@ -124,11 +203,15 @@ const alarmService = {
       const end   = new Date(now.getTime() - i * config.msPerBucket);
       const label = config.label(end);
 
+      // Build base where clause for timestamp and optional networkLayer
+      const baseWhere = { timestamp: { gte: start, lt: end } };
+      if (networkLayer) baseWhere.networkLayer = networkLayer;
+
       const [total, critical, medium, low] = await Promise.all([
-        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end } } }),
-        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'CRITICAL' } }),
-        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'MEDIUM'   } }),
-        prisma.rawAlarm.count({ where: { timestamp: { gte: start, lt: end }, severity: 'LOW'      } }),
+        prisma.rawAlarm.count({ where: baseWhere }),
+        prisma.rawAlarm.count({ where: { ...baseWhere, severity: 'CRITICAL' } }),
+        prisma.rawAlarm.count({ where: { ...baseWhere, severity: 'MEDIUM'   } }),
+        prisma.rawAlarm.count({ where: { ...baseWhere, severity: 'LOW'      } }),
       ]);
 
       series.push({ hour: label, total, critical, medium, low });
