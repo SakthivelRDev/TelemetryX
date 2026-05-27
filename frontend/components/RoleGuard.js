@@ -4,13 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * RoleGuard – wraps content that requires specific roles.
- * Usage: <RoleGuard roles={['ADMIN', 'ENGINEER']}>...</RoleGuard>
- * If 'redirect' is true, unauthorized users are sent to /dashboard.
- * Otherwise, the content is simply hidden.
+ * RoleGuard – page access by DB permissions or legacy role list.
+ * Usage: <RoleGuard module="USER" redirect>...</RoleGuard>
+ *        <RoleGuard roles={['ADMIN']}>...</RoleGuard>
  */
-export default function RoleGuard({ roles, children, redirect = false, fallback = null }) {
-  const { user, loading } = useAuth();
+export default function RoleGuard({ roles, module, action = 'canRead', children, redirect = false, fallback = null }) {
+  const { user, loading, canAccess } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -18,6 +17,12 @@ export default function RoleGuard({ roles, children, redirect = false, fallback 
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!loading && user && module && redirect && !canAccess(module, action)) {
+      router.replace('/dashboard');
+    }
+  }, [user, loading, module, action, redirect, canAccess, router]);
 
   if (loading) {
     return (
@@ -30,13 +35,12 @@ export default function RoleGuard({ roles, children, redirect = false, fallback 
 
   if (!user) return null;
 
-  const hasAccess = !roles || roles.includes(user.role);
+  const hasAccess = module
+    ? canAccess(module, action)
+    : (!roles || roles.includes(user.role));
 
   if (!hasAccess) {
-    if (redirect) {
-      router.push('/dashboard');
-      return null;
-    }
+    if (redirect) return null;
     return fallback || (
       <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
         <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔒</div>

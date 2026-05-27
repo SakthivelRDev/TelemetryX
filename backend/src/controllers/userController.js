@@ -1,4 +1,5 @@
 const userService = require('../services/userService');
+const { MODULES } = require('../config/moduleCapabilities');
 
 const userController = {
   getAll: async (req, res) => {
@@ -65,19 +66,48 @@ const userController = {
     }
   },
 
-  // Returns effective permissions for a specific user (based on their role)
   getUserEffectivePermissions: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const user = await userService.getUserById(userId);
-      const permissions = await userService.getAllPermissions();
-      const effective = permissions.filter((p) => p.role === user.role);
-      return res.status(200).json({ user, permissions: effective });
+      const detail = await userService.getUserPermissionDetail(req.params.userId);
+      const permissions = MODULES.map((m) => ({
+        module: m,
+        canRead:   Boolean(detail.effective[m]?.canRead),
+        canWrite:  Boolean(detail.effective[m]?.canWrite),
+        canDelete: Boolean(detail.effective[m]?.canDelete),
+        hasOverride: Boolean(detail.overrides[m]),
+      }));
+      return res.status(200).json({
+        user: detail.user,
+        rolePermissions: detail.rolePermissions,
+        overrides: detail.overrides,
+        effective: detail.effective,
+        permissions,
+      });
     } catch (err) {
+      console.error('[users] getUserEffectivePermissions:', err);
       return res.status(500).json({ error: err.message });
+    }
+  },
+
+  updateUserPermission: async (req, res) => {
+    try {
+      const { userId, module } = req.params;
+      const result = await userService.updateUserPermission(userId, module, req.body);
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  },
+
+  clearUserPermissionOverride: async (req, res) => {
+    try {
+      const { userId, module } = req.params;
+      const result = await userService.clearUserPermissionOverride(userId, module);
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
     }
   },
 };
 
 module.exports = userController;
-

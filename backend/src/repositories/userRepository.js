@@ -38,4 +38,52 @@ const permissionRepository = {
   }),
 };
 
-module.exports = { userRepository, permissionRepository };
+const userPermissionOverrideRepository = {
+  findByUserId: async (userId) => {
+    try {
+      if (!prisma.userPermissionOverride) {
+        console.warn('[RBAC] userPermissionOverride model missing — run: npx prisma generate && npx prisma db push');
+        return [];
+      }
+      return prisma.userPermissionOverride.findMany({ where: { userId }, orderBy: { module: 'asc' } });
+    } catch (err) {
+      console.error('[RBAC] findByUserId overrides:', err.message);
+      return [];
+    }
+  },
+
+  findByUserModule: async (userId, module) => {
+    try {
+      if (!prisma.userPermissionOverride) return null;
+      return prisma.userPermissionOverride.findUnique({
+        where: { userId_module: { userId, module } },
+      });
+    } catch {
+      return null;
+    }
+  },
+
+  upsert: async (userId, module, data) => {
+    if (!prisma.userPermissionOverride) {
+      throw new Error('User permission overrides not available. Restart backend after: npx prisma generate && npx prisma db push');
+    }
+    return prisma.userPermissionOverride.upsert({
+      where: { userId_module: { userId, module } },
+      update: data,
+      create: { userId, module, ...data },
+    });
+  },
+
+  delete: async (userId, module) => {
+    try {
+      if (!prisma.userPermissionOverride) return null;
+      return await prisma.userPermissionOverride.delete({
+        where: { userId_module: { userId, module } },
+      });
+    } catch {
+      return null;
+    }
+  },
+};
+
+module.exports = { userRepository, permissionRepository, userPermissionOverrideRepository };

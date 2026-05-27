@@ -1,10 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { getEffectivePermissions } = require('../services/permissionService');
+const { actionAllowed } = require('../config/moduleCapabilities');
 
 /**
- * RBAC Middleware Factory
- * Usage: rbac('ALARM', 'canRead')
- * Queries permissions table dynamically — not hardcoded by role.
+ * RBAC Middleware — checks effective permissions (role + per-user overrides).
  */
 const rbac = (module, action) => {
   return async (req, res, next) => {
@@ -12,19 +10,22 @@ const rbac = (module, action) => {
       return res.status(401).json({ error: 'Unauthorized: No user context' });
     }
 
-    try {
-      const permission = await prisma.permission.findUnique({
-        where: {
-          role_module: {
-            role: req.user.role,
-            module: module,
-          },
-        },
-      });
+    if (req.user.role === 'ADMIN') {
+      return next();
+    }
 
-      if (!permission || !permission[action]) {
+    if (!actionAllowed(module, action)) {
+      return res.status(403).json({
+        error: `Action '${action}' is not applicable to module '${module}'`,
+      });
+    }
+
+    try {
+      const permissions = await getEffectivePermissions(req.user.id, req.user.role);
+
+      if (!permissions[module]?.[action]) {
         return res.status(403).json({
-          error: `Forbidden: Role '${req.user.role}' does not have '${action}' on module '${module}'`,
+          error: `Forbidden: You do not have '${action}' on module '${module}'`,
         });
       }
 

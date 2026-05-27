@@ -1,5 +1,4 @@
 /* App360 – Global Design System */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ── CSS Variables ─────────────────────────────────────────────────────────── */
 :root {
@@ -75,7 +74,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
@@ -262,8 +261,8 @@ tbody td {
 }
 
 .badge-critical { background: rgba(239,68,68,0.15);   color: #f87171; border: 1px solid rgba(239,68,68,0.3);   }
-.badge-major    { background: rgba(249,115,22,0.15);  color: #fb923c; border: 1px solid rgba(249,115,22,0.3);  }
-.badge-minor    { background: rgba(234,179,8,0.15);   color: #fbbf24; border: 1px solid rgba(234,179,8,0.3);   }
+.badge-medium   { background: rgba(249,115,22,0.15);  color: #fb923c; border: 1px solid rgba(249,115,22,0.3);  }
+.badge-low      { background: rgba(234,179,8,0.15);   color: #fbbf24; border: 1px solid rgba(234,179,8,0.3);   }
 .badge-warning  { background: rgba(245,158,11,0.15);  color: #fcd34d; border: 1px solid rgba(245,158,11,0.3);  }
 .badge-info     { background: rgba(99,120,255,0.15);  color: #818cf8; border: 1px solid rgba(99,120,255,0.3);  }
 .badge-ok       { background: rgba(16,185,129,0.15);  color: #34d399; border: 1px solid rgba(16,185,129,0.3);  }
@@ -273,6 +272,26 @@ tbody td {
 .badge-admin    { background: rgba(168,85,247,0.15);  color: #c084fc; border: 1px solid rgba(168,85,247,0.3);  }
 .badge-engineer { background: rgba(34,211,238,0.15);  color: #67e8f9; border: 1px solid rgba(34,211,238,0.3);  }
 .badge-viewer   { background: rgba(99,120,255,0.15);  color: #818cf8; border: 1px solid rgba(99,120,255,0.3);  }
+/* Network layer badges */
+.badge-ran       { background: rgba(34,211,238,0.15);  color: #22d3ee; border: 1px solid rgba(34,211,238,0.3);  }
+.badge-core      { background: rgba(168,85,247,0.15);  color: #c084fc; border: 1px solid rgba(168,85,247,0.3);  }
+.badge-transport { background: rgba(245,158,11,0.15);  color: #fbbf24; border: 1px solid rgba(245,158,11,0.3);  }
+
+/* ── Map Tile Layer Button ──────────────────────────────────────────────── */
+.tile-btn {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.tile-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-hover); }
+.tile-btn.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
 
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 .btn {
@@ -526,6 +545,27 @@ select option { background: var(--bg-card); }
 /* ── Map ───────────────────────────────────────────────────────────────────── */
 .map-container { border-radius: var(--radius-lg); overflow: hidden; }
 
+.leaflet-map-host {
+  width: 100%;
+  height: 600px;
+  min-height: 400px;
+}
+
+.leaflet-map-host.leaflet-container {
+  width: 100%;
+  height: 100%;
+  font-family: inherit;
+}
+
+.leaflet-map-host .leaflet-pane {
+  z-index: auto;
+}
+
+.leaflet-map-host .leaflet-tile-pane img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 .leaflet-popup-content-wrapper {
   background: var(--bg-card) !important;
   border: 1px solid var(--border-color) !important;
@@ -596,7 +636,7 @@ select option { background: var(--bg-card); }
 }
 
 /* ── Misc Utilities ────────────────────────────────────────────────────────── */
-.mono { font-family: 'JetBrains Mono', monospace; }
+.mono { font-family: var(--font-mono), 'JetBrains Mono', monospace; }
 .text-muted { color: var(--text-muted); }
 .text-secondary { color: var(--text-secondary); }
 .text-accent { color: var(--accent-blue); }

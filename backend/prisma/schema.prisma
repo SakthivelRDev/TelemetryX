@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// App360 Prisma Schema – Telecom AIOps Platform
 
 generator client {
   provider = "prisma-client-js"
@@ -23,18 +22,25 @@ enum Module {
   USER
 }
 
+// Simplified 3-level severity for telecom NOC:
+// CRITICAL = service-affecting, MEDIUM = degraded, LOW = sub-optimal
 enum Severity {
   CRITICAL
-  MAJOR
-  MINOR
-  WARNING
-  INFO
+  MEDIUM
+  LOW
 }
 
 enum SiteStatus {
   OK
   WARNING
   CRITICAL
+}
+
+// Network layer in telecom architecture
+enum NetworkLayer {
+  RAN        // Radio Access Network (gNodeB, eNodeB, CU, DU, RRU)
+  CORE       // Core Network (AMF, SMF, UPF, MME, SGW)
+  TRANSPORT  // Transport/Backhaul (Routers, Switches, OTN, Microwave)
 }
 
 enum EventStatus {
@@ -67,46 +73,62 @@ model Permission {
   @@map("permissions")
 }
 
+/// Per-user permission overrides (replaces role defaults for that module when set).
+model UserPermissionOverride {
+  id        String  @id @default(uuid())
+  userId    String
+  module    Module
+  canRead   Boolean @default(false)
+  canWrite  Boolean @default(false)
+  canDelete Boolean @default(false)
+
+  @@unique([userId, module])
+  @@map("user_permission_overrides")
+}
+
 model RawAlarm {
-  id         String   @id @default(uuid())
-  source     String
-  siteId     String
-  deviceId   String
-  severity   Severity
-  message    String
-  timestamp  DateTime
-  normalized Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id           String       @id @default(uuid())
+  source       String
+  siteId       String
+  deviceId     String
+  severity     Severity
+  message      String
+  timestamp    DateTime
+  normalized   Boolean      @default(false)
+  networkLayer NetworkLayer @default(TRANSPORT)
+  createdAt    DateTime     @default(now())
 
   @@map("raw_alarms")
 }
 
 model CorrelatedEvent {
-  id              String      @id @default(uuid())
+  id              String       @id @default(uuid())
   groupKey        String
   alarmIds        String[]
   severity        Severity
   startTime       DateTime
   endTime         DateTime
-  status          EventStatus @default(OPEN)
+  status          EventStatus  @default(OPEN)
   correlationRule String
   siteId          String
   deviceId        String
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  networkLayer    NetworkLayer @default(TRANSPORT)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@map("correlated_events")
 }
 
 model Site {
-  id        String     @id @default(uuid())
-  name      String
-  region    String
-  lat       Float
-  lng       Float
-  status    SiteStatus @default(OK)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id           String       @id @default(uuid())
+  name         String
+  region       String
+  lat          Float
+  lng          Float
+  status       SiteStatus   @default(OK)
+  networkLayer NetworkLayer @default(TRANSPORT)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@map("sites")
 }

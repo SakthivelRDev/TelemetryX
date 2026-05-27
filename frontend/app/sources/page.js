@@ -1,10 +1,12 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import api from '../../lib/api';
 
 export default function SourcesPage() {
+  const { canAccess } = useAuth();
   const [sources, setSources]   = useState([]);
   const [loading, setLoading]   = useState(true);
   const [polling, setPolling]   = useState(null);
@@ -70,7 +72,7 @@ export default function SourcesPage() {
 
   return (
     <AppLayout>
-      <RoleGuard roles={['ADMIN', 'ENGINEER']}>
+      <RoleGuard module="API" redirect>
       <div className="fade-in">
         {toast && <div className={`alert ${toast.startsWith('✅') ? 'alert-success' : 'alert-error'}`} style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 999, width: 'auto', minWidth: 280 }}>{toast}</div>}
 
@@ -80,9 +82,11 @@ export default function SourcesPage() {
               <h1 className="page-title">⚡ API Sources</h1>
               <p className="page-subtitle">Manage data ingestion sources · Monitor polling status</p>
             </div>
-            <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)} id="add-source-btn">
-              {showForm ? '✕ Cancel' : '+ Add Source'}
-            </button>
+            {canAccess('API', 'canWrite') && (
+              <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)} id="add-source-btn">
+                {showForm ? '✕ Cancel' : '+ Add Source'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -132,7 +136,7 @@ export default function SourcesPage() {
         </div>
 
         {/* Add Source Form */}
-        {showForm && (
+        {showForm && canAccess('API', 'canWrite') && (
           <div className="card fade-in" style={{ marginBottom: '1.25rem', borderColor: 'var(--accent-blue)' }}>
             <div className="card-header"><span className="card-title">Add New API Source</span></div>
             <form onSubmit={handleAddSource}>
@@ -193,10 +197,14 @@ export default function SourcesPage() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button className="btn btn-primary btn-sm" onClick={() => handlePoll(src)} disabled={polling === src.id} id={`poll-${src.id}`}>
-                            {polling === src.id ? 'Polling…' : '⚡ Poll Now'}
-                          </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(src.id, src.name)} id={`delete-source-${src.id}`}>Delete</button>
+                          {canAccess('API', 'canWrite') && (
+                            <button className="btn btn-primary btn-sm" onClick={() => handlePoll(src)} disabled={polling === src.id} id={`poll-${src.id}`}>
+                              {polling === src.id ? 'Polling…' : '⚡ Poll Now'}
+                            </button>
+                          )}
+                          {canAccess('API', 'canDelete') && (
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(src.id, src.name)} id={`delete-source-${src.id}`}>Delete</button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -19,8 +19,13 @@ const authController = {
     return res.status(200).json({ message: 'Logged out successfully' });
   },
 
-  me: (req, res) => {
-    return res.status(200).json({ user: req.user });
+  me: async (req, res) => {
+    try {
+      const result = await authService.getMe(req.user.id, req.user.role);
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(404).json({ error: err.message });
+    }
   },
 };
 

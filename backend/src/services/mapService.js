@@ -4,8 +4,12 @@ const { PrismaClient }      = require('@prisma/client');
 const prisma                = new PrismaClient();
 
 const mapService = {
-  getAllSites: async ({ region, severity, status } = {}) => {
-    const sites = await siteRepository.findAll({ region, status });
+  getAllSites: async ({ region, severity, status, networkLayer } = {}) => {
+    const sites = await siteRepository.findAll({
+      region,
+      status,
+      ...(networkLayer && { networkLayer }),
+    });
 
     // Enrich each site with alarm counts
     const enriched = await Promise.all(
@@ -19,7 +23,7 @@ const mapService = {
           prisma.rawAlarm.count({ where: { siteId: site.id } }),
         ]);
 
-        const topSeverity = openEvents[0]?.severity || 'INFO';
+        const topSeverity = openEvents[0]?.severity || null;
         return { ...site, alarmCount, topSeverity };
       })
     );

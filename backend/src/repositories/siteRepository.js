@@ -2,10 +2,11 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const siteRepository = {
-  findAll: ({ region, status } = {}) => {
+  findAll: ({ region, status, networkLayer } = {}) => {
     const where = {};
-    if (region) where.region = region;
-    if (status) where.status = status;
+    if (region)       where.region       = region;
+    if (status)       where.status       = status;
+    if (networkLayer) where.networkLayer = networkLayer;
     return prisma.site.findMany({ where, orderBy: { name: 'asc' } });
   },
 
