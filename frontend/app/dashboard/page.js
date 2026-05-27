@@ -7,11 +7,11 @@ import api from '../../lib/api';
 import Link from 'next/link';
 
 const TIME_RANGES = [
-  { value: '1h',  label: 'Last 1 Hour'  },
-  { value: '6h',  label: 'Last 6 Hours' },
+  { value: '1h', label: 'Last 1 Hour' },
+  { value: '6h', label: 'Last 6 Hours' },
   { value: '12h', label: 'Last 12 Hours' },
-  { value: '24h', label: 'Last 1 Day'   },
-  { value: '7d',  label: 'Last 7 Days'  },
+  { value: '24h', label: 'Last 1 Day' },
+  { value: '7d', label: 'Last 7 Days' },
 ];
 
 // Dynamic import recharts (client-side only)
@@ -22,8 +22,8 @@ const {
 
 const SEVERITY_COLORS = {
   CRITICAL: '#ef4444',
-  MEDIUM:   '#f97316',
-  LOW:      '#eab308',
+  MEDIUM: '#f97316',
+  LOW: '#eab308',
 };
 
 const SITE_STATUS_COLORS = { CRITICAL: '#ef4444', WARNING: '#f59e0b', OK: '#10b981' };
@@ -50,12 +50,12 @@ const CUSTOM_TOOLTIP_STYLE = {
 
 export default function DashboardPage() {
   const { user, canAccess } = useAuth();
-  const [stats, setStats]     = useState(null);
-  const [series, setSeries]   = useState([]);
-  const [events, setEvents]   = useState([]);
+  const [stats, setStats] = useState(null);
+  const [series, setSeries] = useState([]);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
-  const [toast, setToast]     = useState('');
+  const [toast, setToast] = useState('');
   const [timeRange, setTimeRange] = useState('12h');
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
@@ -103,21 +103,21 @@ export default function DashboardPage() {
   // Prepare severity pie chart data
   const severityPieData = stats?.severityCounts
     ? Object.entries(stats.severityCounts)
-        .filter(([, v]) => v > 0)
-        .map(([name, value]) => ({ name, value }))
+      .filter(([, v]) => v > 0)
+      .map(([name, value]) => ({ name, value }))
     : [];
 
   // Prepare site status pie data
   const statusPieData = stats?.siteStatuses
     ? Object.entries(stats.siteStatuses)
-        .filter(([, v]) => v > 0)
-        .map(([name, value]) => ({ name, value }))
+      .filter(([, v]) => v > 0)
+      .map(([name, value]) => ({ name, value }))
     : [];
 
   const RULE_LABELS = {
-    RULE_1_SAME_SITE_DEVICE:   'Rule 1 – Device',
+    RULE_1_SAME_SITE_DEVICE: 'Rule 1 – Device',
     RULE_2_SITE_WIDE_CRITICAL: 'Rule 2 – Site-Wide',
-    RULE_3_STANDALONE:         'Rule 3 – Standalone',
+    RULE_3_STANDALONE: 'Rule 3 – Standalone',
   };
 
   return (
@@ -152,10 +152,10 @@ export default function DashboardPage() {
             <>
               {/* Stat Cards */}
               <div className="stats-grid">
-                <StatCard id="stat-total-alarms"    icon="🔔" value={stats?.totalRaw}       label="Total Raw Alarms"       colorClass="blue"   />
-                <StatCard id="stat-open-events"     icon="⚡" value={stats?.openEvents}     label="Open Correlated Events" colorClass="red"    />
-                <StatCard id="stat-critical-sites"  icon="🏢" value={stats?.criticalSites}  label="Critical Sites"         colorClass="orange" />
-                <StatCard id="stat-critical-alarms" icon="🚨" value={stats?.criticalAlarms} label="Critical Alarms"        colorClass="red"    />
+                <StatCard id="stat-total-alarms" icon="🔔" value={stats?.totalRaw} label="Total Alarms" colorClass="blue" />
+                <StatCard id="stat-open-events" icon="⚡" value={stats?.openEvents} label="Open Correlated Events" colorClass="red" />
+                <StatCard id="stat-critical-sites" icon="🏢" value={stats?.criticalSites} label="Critical Sites" colorClass="orange" />
+                <StatCard id="stat-critical-alarms" icon="🚨" value={stats?.criticalAlarms} label="Critical Alarms" colorClass="red" />
               </div>
 
               {/* Charts Row 1 */}
@@ -180,12 +180,12 @@ export default function DashboardPage() {
                     <AreaChart data={series} margin={{ top: 4, right: 16, bottom: 0, left: -20 }}>
                       <defs>
                         <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor="#6378ff" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#6378ff" stopOpacity={0}   />
+                          <stop offset="5%" stopColor="#6378ff" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#6378ff" stopOpacity={0} />
                         </linearGradient>
                         <linearGradient id="gradCrit" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}    />
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,120,255,0.1)" />
@@ -193,9 +193,9 @@ export default function DashboardPage() {
                       <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} allowDecimals={false} />
                       <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Area type="monotone" dataKey="total"    stroke="#6378ff" fill="url(#gradTotal)" name="Total"    strokeWidth={2} />
-                      <Area type="monotone" dataKey="critical" stroke="#ef4444" fill="url(#gradCrit)"  name="Critical" strokeWidth={2} />
-                      <Area type="monotone" dataKey="medium"   stroke="#f97316" fill="none"            name="Medium"   strokeWidth={1.5} strokeDasharray="4 2" />
+                      <Area type="monotone" dataKey="total" stroke="#6378ff" fill="url(#gradTotal)" name="Total" strokeWidth={2} />
+                      <Area type="monotone" dataKey="critical" stroke="#ef4444" fill="url(#gradCrit)" name="Critical" strokeWidth={2} />
+                      <Area type="monotone" dataKey="medium" stroke="#f97316" fill="none" name="Medium" strokeWidth={1.5} strokeDasharray="4 2" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
