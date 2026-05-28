@@ -156,8 +156,8 @@ export default function DashboardPage() {
           {/* Header */}
           <div className="page-header">
             <div className="flex-between">
-              <div>
-                <h1 className="page-title">⬡ Dashboard</h1>
+                <div>
+                <h1 className="page-title">⌂ Dashboard</h1>
                 <p className="page-subtitle">
                   Network operations overview · Auto-refresh 10s &nbsp;<span className="pulse-dot" />
                 </p>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                 {/* ── Global Time Filter ── */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                    🕐 Time Range:
+                    ⌚ Time Range:
                   </span>
                   <select
                     value={timeRange}
@@ -193,7 +193,7 @@ export default function DashboardPage() {
                 <span className={`badge badge-${user?.role?.toLowerCase()}`}>{user?.role}</span>
                 {canAccess('ALARM', 'canWrite') && (
                   <button className="btn btn-secondary btn-sm" onClick={handleReset} disabled={resetting} id="reset-data-btn" title="Close all stale open events and reset site statuses">
-                    {resetting ? '⏳ Resetting…' : '🔄 Reset Data'}
+                    {resetting ? '⏳ Resetting…' : '↻ Reset Data'}
                   </button>
                 )}
               </div>
@@ -206,13 +206,13 @@ export default function DashboardPage() {
             <>
               {/* Stat Cards */}
               <div className="stats-grid">
-                <StatCard id="stat-total-alarms"   icon="🔔" value={stats?.totalRaw}             label="Total Alarms"            colorClass="blue"   />
+                <StatCard id="stat-total-alarms"   icon="◉" value={stats?.totalRaw}             label="Total Alarms"            colorClass="blue"   />
                 <StatCard id="stat-open-events"    icon="⚡" value={stats?.openEvents}            label="Open Correlated Events"  colorClass="red"    />
-                <StatCard id="stat-critical-sites" icon="🏢" value={stats?.criticalSites}         label="Critical Sites"          colorClass="orange" />
-                <StatCard id="stat-critical-alarms" icon="🚨" value={stats?.criticalAlarms}       label="Critical Alarms"         colorClass="red"    />
-                <StatCard id="stat-layer-ran"      icon="📡" value={stats?.layerCounts?.RAN}      label="RAN Sites"               colorClass="cyan"   />
-                <StatCard id="stat-layer-core"     icon="🖥" value={stats?.layerCounts?.CORE}     label="CORE Sites"              colorClass="purple" />
-                <StatCard id="stat-layer-transport" icon="🔀" value={stats?.layerCounts?.TRANSPORT} label="TRANSPORT Sites"       colorClass="amber"  />
+                <StatCard id="stat-critical-sites" icon="▣" value={stats?.criticalSites}         label="Critical Sites"          colorClass="orange" />
+                <StatCard id="stat-critical-alarms" icon="⚠" value={stats?.criticalAlarms}       label="Critical Alarms"         colorClass="red"    />
+                <StatCard id="stat-layer-ran"      icon="⌖" value={stats?.layerCounts?.RAN}      label="RAN Sites"               colorClass="cyan"   />
+                <StatCard id="stat-layer-core"     icon="◫" value={stats?.layerCounts?.CORE}     label="CORE Sites"              colorClass="purple" />
+                <StatCard id="stat-layer-transport" icon="↔" value={stats?.layerCounts?.TRANSPORT} label="TRANSPORT Sites"       colorClass="amber"  />
               </div>
 
               {/* Charts Row 1 */}
@@ -220,7 +220,7 @@ export default function DashboardPage() {
                 {/* Area Chart: Alarm volume */}
                 <div className="chart-card">
                   <div className="chart-title" style={{ marginBottom: '0.5rem' }}>
-                    📈 Alarm Volume – {rangeLabel}
+                    Alarm Volume – {rangeLabel}
                   </div>
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={series} margin={{ top: 4, right: 16, bottom: 0, left: -20 }}>
@@ -248,7 +248,7 @@ export default function DashboardPage() {
 
                 {/* Pie Chart: Site Status */}
                 <div className="chart-card">
-                  <div className="chart-title">🏢 Site Status</div>
+                  <div className="chart-title">Site Status</div>
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
                       <Pie
@@ -277,7 +277,7 @@ export default function DashboardPage() {
               <div className="charts-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
                 {/* Bar Chart: Alarms by Severity */}
                 <div className="chart-card">
-                  <div className="chart-title">📊 Alarms by Severity</div>
+                  <div className="chart-title">Alarms by Severity</div>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={Object.entries(stats?.severityCounts || {}).map(([name, value]) => ({ name, value }))} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,120,255,0.1)" />
@@ -295,7 +295,7 @@ export default function DashboardPage() {
 
                 {/* Donut: Alarm severity distribution */}
                 <div className="chart-card">
-                  <div className="chart-title">🥧 Severity Distribution</div>
+                  <div className="chart-title">Severity Distribution</div>
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie data={severityPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
@@ -312,7 +312,7 @@ export default function DashboardPage() {
 
                 {/* Pie: Network Layers */}
                 <div className="chart-card">
-                  <div className="chart-title">🧩 Network Layers</div>
+                  <div className="chart-title">Network Layers</div>
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
@@ -342,9 +342,9 @@ export default function DashboardPage() {
               </div>
 
               {/* Layer-specific Time Series */}
-              <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+                <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
                 <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.6rem', color: 'var(--text-primary)' }}>
-                  🧭 Layer Time Series – {rangeLabel}
+                  Layer Time Series – {rangeLabel}
                 </div>
                 <div className="charts-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
                   {['RAN','CORE','TRANSPORT'].map((layer) => {

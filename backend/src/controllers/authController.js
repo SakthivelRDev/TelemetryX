@@ -27,6 +27,15 @@ const authController = {
       return res.status(404).json({ error: err.message });
     }
   },
+
+  updateMe: async (req, res) => {
+    try {
+      const result = await authService.updateMe(req.user.id, req.body || {});
+      return res.status(200).json(result);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  },
 };
 
 module.exports = authController;

@@ -49,6 +49,38 @@ const authService = {
       permissions,
     };
   },
+
+  updateMe: async (userId, body) => {
+    const currentUser = await userRepository.findById(userId);
+    if (!currentUser) throw new Error('User not found');
+
+    const updateData = {};
+
+    if (body.name && body.name.trim()) updateData.name = body.name.trim();
+
+    if (body.email && body.email.trim()) {
+      const email = body.email.trim().toLowerCase();
+      const existing = await userRepository.findByEmail(email);
+      if (existing && existing.id !== userId) {
+        throw new Error('Email already in use');
+      }
+      updateData.email = email;
+    }
+
+    if (body.password && body.password.trim()) {
+      updateData.password = await bcrypt.hash(body.password, 10);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      const permissions = await getEffectivePermissions(currentUser.id, currentUser.role);
+      return { user: currentUser, permissions };
+    }
+
+    const user = await userRepository.update(userId, updateData);
+    const permissions = await getEffectivePermissions(userId, currentUser.role);
+
+    return { user, permissions };
+  },
 };
 
 module.exports = authService;

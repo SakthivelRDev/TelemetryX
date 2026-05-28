@@ -66,7 +66,7 @@ export default function AlarmsPage() {
         <div className="page-header">
           <div className="flex-between">
             <div>
-              <h1 className="page-title">🔔 Correlated Alarms</h1>
+              <h1 className="page-title">◉ Correlated Alarms</h1>
               <p className="page-subtitle">{total} events found · Click to drill-down</p>
             </div>
             {canAccess('ALARM', 'canWrite') && (

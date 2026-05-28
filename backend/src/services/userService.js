@@ -42,6 +42,14 @@ const userService = {
   getAllPermissions: () => permissionRepository.findAll(),
 
   updatePermission: async (role, module, body) => {
+    if (role === 'ADMIN') {
+      const alwaysOn = sanitizeModulePermissions(module, {
+        canRead: true,
+        canWrite: true,
+        canDelete: true,
+      });
+      return permissionRepository.upsert(role, module, alwaysOn);
+    }
     const sanitized = sanitizeModulePermissions(module, body);
     return permissionRepository.upsert(role, module, sanitized);
   },

@@ -18,8 +18,12 @@ export default function PermissionsEditor({ permissions = [], onUpdated, canEdit
   const permMap = {};
   localPerms.forEach((p) => { permMap[`${p.role}:${p.module}`] = p; });
 
-  const getVal = (role, module, action) =>
-    permMap[`${role}:${module}`]?.[action] ?? false;
+  const getVal = (role, module, action) => {
+    if (role === 'ADMIN') {
+      return MODULE_CAPABILITIES[module]?.actions.includes(action) ?? false;
+    }
+    return permMap[`${role}:${module}`]?.[action] ?? false;
+  };
 
   const handleToggle = async (role, module, action, currentVal) => {
     if (role === 'ADMIN' || !canEdit) return;
@@ -167,7 +171,7 @@ export default function PermissionsEditor({ permissions = [], onUpdated, canEdit
       </div>
 
       <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-        💡 Each module only shows relevant permissions: Map = View only · Alarm = View + Manage · API & User = View/Edit/Delete.
+        💡 Each module only shows relevant permissions: Profile = View/Edit · Map = View + Region View · Alarm = View + Manage · API & User = View/Edit/Delete.
         {canEdit ? ' Toggle to save immediately.' : ' Read-only for your role.'}
       </div>
     </div>

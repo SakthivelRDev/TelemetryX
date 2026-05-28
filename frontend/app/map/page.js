@@ -188,6 +188,7 @@ export default function MapPage() {
   const [geoRegion, setGeoRegion]         = useState(null);   // detected region name
   const [geoBannerOpen, setGeoBannerOpen] = useState(true);   // banner visibility
   const [geoLoading, setGeoLoading]       = useState(false);
+  const [isGeoFallback, setIsGeoFallback] = useState(false);  // geolocation denied fallback state
 
   // Alarms modal state
   const [modalSite, setModalSite]       = useState(null);
@@ -244,8 +245,13 @@ export default function MapPage() {
       if (result?.region) {
         setGeoRegion(result.region);
         setRegion(result.region);   // pre-fill the filter dropdown
-        setGeoBannerOpen(true);
+        setIsGeoFallback(false);
+      } else {
+        setGeoRegion('South');
+        setRegion('South');         // fallback to South region
+        setIsGeoFallback(true);
       }
+      setGeoBannerOpen(true);
       setGeoLoading(false);
     });
   // Run only once when role/permission are known
@@ -323,9 +329,9 @@ export default function MapPage() {
               <strong>Region View active</strong>
               {' '}— showing sites in the{' '}
               <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>{geoRegion}</span>
-              {' '}region based on your current location.
+              {' '}{isGeoFallback ? 'region (location permission denied/unavailable)' : 'region based on your current location'}.
               <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>
-                Use the filter above to view other regions.
+                (Locked to this region)
               </span>
             </span>
             <button
@@ -414,7 +420,8 @@ export default function MapPage() {
               if (!e.target.value) setGeoRegion(null);
             }}
             id="map-filter-region"
-            style={geoRegion && region === geoRegion ? { borderColor: 'var(--accent-cyan)', boxShadow: '0 0 0 2px rgba(34,211,238,0.2)' } : {}}
+            disabled={isNonAdmin && isRegionViewEnabled}
+            style={geoRegion && region === geoRegion ? { borderColor: 'var(--accent-cyan)', boxShadow: '0 0 0 2px rgba(34,211,238,0.2)', opacity: isNonAdmin && isRegionViewEnabled ? 0.8 : 1 } : {}}
           >
             {REGIONS.map((r) => <option key={r} value={r}>{r || 'All Regions'}</option>)}
           </select>

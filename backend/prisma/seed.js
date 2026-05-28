@@ -27,16 +27,19 @@ async function main() {
       { role: 'ADMIN', module: 'MAP',   canRead: true, canWrite: true, canDelete: true },
       { role: 'ADMIN', module: 'API',   canRead: true, canWrite: true, canDelete: true },
       { role: 'ADMIN', module: 'USER',  canRead: true, canWrite: true, canDelete: true },
+      { role: 'ADMIN', module: 'PROFILE',  canRead: true, canWrite: true, canDelete: true },
       // ENGINEER – read/write alarms, read map & api & user; Region View enabled (canWrite on MAP)
       { role: 'ENGINEER', module: 'ALARM', canRead: true,  canWrite: true,  canDelete: false },
       { role: 'ENGINEER', module: 'MAP',   canRead: true,  canWrite: true,  canDelete: false },
       { role: 'ENGINEER', module: 'API',   canRead: true,  canWrite: false, canDelete: false },
       { role: 'ENGINEER', module: 'USER',  canRead: true,  canWrite: false, canDelete: false },
+      { role: 'ENGINEER', module: 'PROFILE',  canRead: true,  canWrite: true, canDelete: false },
       // VIEWER – read only alarms & map; Region View disabled by default (toggle in matrix to enable)
       { role: 'VIEWER', module: 'ALARM', canRead: true,  canWrite: false, canDelete: false },
       { role: 'VIEWER', module: 'MAP',   canRead: true,  canWrite: false, canDelete: false },
       { role: 'VIEWER', module: 'API',   canRead: false, canWrite: false, canDelete: false },
       { role: 'VIEWER', module: 'USER',  canRead: false, canWrite: false, canDelete: false },
+      { role: 'VIEWER', module: 'PROFILE',  canRead: true, canWrite: true, canDelete: false },
     ],
   });
   console.log('✅ Permissions seeded');

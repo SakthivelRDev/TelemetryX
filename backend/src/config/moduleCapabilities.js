@@ -7,6 +7,11 @@ const MODULE_CAPABILITIES = {
     labels: { canRead: 'View', canWrite: 'Manage' },
     description: 'View alarms & dashboard; manage ingest/reset',
   },
+  PROFILE: {
+    actions: ['canRead', 'canWrite'],
+    labels: { canRead: 'View', canWrite: 'Edit' },
+    description: 'View and edit own profile (name/password)',
+  },
   MAP: {
     actions: ['canRead', 'canWrite'],
     labels: { canRead: 'View', canWrite: 'Region View' },

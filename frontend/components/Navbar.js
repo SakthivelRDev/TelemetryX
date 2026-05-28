@@ -5,11 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard',      icon: '⬡', module: 'ALARM' },
-  { href: '/alarms',    label: 'Alarms',          icon: '🔔', module: 'ALARM' },
-  { href: '/map',       label: 'Network Map',     icon: '🗺', module: 'MAP'   },
-  { href: '/sources',   label: 'API Sources',     icon: '⚡', module: 'API'   },
-  { href: '/users',     label: 'User Management', icon: '👥', module: 'USER'  },
+  { href: '/dashboard', label: 'Dashboard',      icon: '⌂', module: 'ALARM' },
+  { href: '/alarms',    label: 'Alarms',          icon: '◉', module: 'ALARM' },
+  { href: '/map',       label: 'Network Map',     icon: '⌖', module: 'MAP'   },
+  { href: '/sources',   label: 'API Sources',     icon: '↯', module: 'API'   },
+  { href: '/users',     label: 'User Management', icon: '◫', module: 'USER'  },
+  { href: '/profile',   label: 'Profile',         icon: '◌', module: 'PROFILE' },
 ];
 
 export default function Navbar() {
@@ -19,7 +20,7 @@ export default function Navbar() {
 
   if (!user) return null;
 
-  const visibleItems = NAV_ITEMS.filter((item) => canAccess(item.module, 'canRead'));
+  const visibleItems = NAV_ITEMS.filter((item) => !item.module || canAccess(item.module, 'canRead'));
   const initials     = user.name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
   return (
@@ -68,6 +69,14 @@ export default function Navbar() {
             </div>
           </div>
         </div>
+        <Link
+          href="/profile"
+          className="btn btn-secondary"
+          style={{ width: '100%', justifyContent: 'center', marginBottom: '0.5rem' }}
+          id="profile-btn"
+        >
+          ⌁ Profile
+        </Link>
         <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={logout} id="logout-btn">
           ↩ Sign Out
         </button>
