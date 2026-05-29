@@ -6,6 +6,7 @@ import AppLayout from '../../components/AppLayout';
 import RoleGuard from '../../components/RoleGuard';
 import api from '../../lib/api';
 import { MODULES, MODULE_CAPABILITIES } from '../../lib/moduleCapabilities';
+import { UserCircle, ShieldCheck, ArrowLeft, Save, Info, Check, X } from 'lucide-react';
 
 function PermissionPill({ module, perms }) {
   const caps = MODULE_CAPABILITIES[module] || { actions: [], labels: {} };
@@ -77,7 +78,10 @@ export default function ProfilePage() {
           <div className="page-header">
             <div className="flex-between">
               <div>
-                <h1 className="page-title">◌ Profile</h1>
+                <h1 className="page-title">
+                <span className="page-title-icon"><UserCircle size={22} /></span>
+                Profile
+              </h1>
                 <p className="page-subtitle">View and update your account details</p>
               </div>
             </div>
@@ -87,7 +91,7 @@ export default function ProfilePage() {
           {error && <div className="alert alert-error">⚠ {error}</div>}
           {!canEdit && (
             <div className="alert alert-info">
-              <span>ℹ</span>
+              <Info size={15} />
               <span>Editing is disabled for your role. Please contact an administrator to request edit permissions.</span>
             </div>
           )}
@@ -115,8 +119,12 @@ export default function ProfilePage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => router.back()}>Back</button>
-                  <button type="submit" className="btn btn-primary" disabled={saving || !canEdit}>{saving ? 'Saving…' : 'Save Profile'}</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => router.back()}>
+                    <ArrowLeft size={14} /> Back
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={saving || !canEdit}>
+                    <Save size={14} /> {saving ? 'Saving…' : 'Save Profile'}
+                  </button>
                 </div>
               </form>
             </div>

@@ -5,6 +5,10 @@ import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import api from '../../lib/api';
 import Link from 'next/link';
+import {
+  LayoutDashboard, Bell, TriangleAlert, Cpu, Radio, Server, Network,
+  RefreshCw, Clock, ChevronRight, Flame,
+} from 'lucide-react';
 
 const TIME_RANGES = [
   { value: 'all', label: 'All Time' },
@@ -156,32 +160,27 @@ export default function DashboardPage() {
           {/* Header */}
           <div className="page-header">
             <div className="flex-between">
-                <div>
-                <h1 className="page-title">⌂ Dashboard</h1>
+              <div>
+                <h1 className="page-title">
+                  <span className="page-title-icon"><LayoutDashboard size={22} /></span>
+                  Dashboard
+                </h1>
                 <p className="page-subtitle">
+                  <Clock size={13} />
                   Network operations overview · Auto-refresh 10s &nbsp;<span className="pulse-dot" />
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
                 {/* ── Global Time Filter ── */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                    ⌚ Time Range:
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                    Time Range:
                   </span>
                   <select
                     value={timeRange}
                     onChange={(e) => { setLoading(true); setTimeRange(e.target.value); }}
                     id="global-time-range"
-                    style={{
-                      minWidth: 150,
-                      fontSize: '0.82rem',
-                      padding: '0.35rem 0.6rem',
-                      borderRadius: 8,
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-primary)',
-                      cursor: 'pointer',
-                    }}
+                    style={{ minWidth: 148, fontSize: '0.82rem', width: 'auto' }}
                     aria-label="Global dashboard time range filter"
                   >
                     {TIME_RANGES.map((r) => (
@@ -193,7 +192,8 @@ export default function DashboardPage() {
                 <span className={`badge badge-${user?.role?.toLowerCase()}`}>{user?.role}</span>
                 {canAccess('ALARM', 'canWrite') && (
                   <button className="btn btn-secondary btn-sm" onClick={handleReset} disabled={resetting} id="reset-data-btn" title="Close all stale open events and reset site statuses">
-                    {resetting ? '⏳ Resetting…' : '↻ Reset Data'}
+                    <RefreshCw size={13} />
+                    {resetting ? 'Resetting…' : 'Reset Data'}
                   </button>
                 )}
               </div>
@@ -206,13 +206,13 @@ export default function DashboardPage() {
             <>
               {/* Stat Cards */}
               <div className="stats-grid">
-                <StatCard id="stat-total-alarms"   icon="◉" value={stats?.totalRaw}             label="Total Alarms"            colorClass="blue"   />
-                <StatCard id="stat-open-events"    icon="⚡" value={stats?.openEvents}            label="Open Correlated Events"  colorClass="red"    />
-                <StatCard id="stat-critical-sites" icon="▣" value={stats?.criticalSites}         label="Critical Sites"          colorClass="orange" />
-                <StatCard id="stat-critical-alarms" icon="⚠" value={stats?.criticalAlarms}       label="Critical Alarms"         colorClass="red"    />
-                <StatCard id="stat-layer-ran"      icon="⌖" value={stats?.layerCounts?.RAN}      label="RAN Sites"               colorClass="cyan"   />
-                <StatCard id="stat-layer-core"     icon="◫" value={stats?.layerCounts?.CORE}     label="CORE Sites"              colorClass="purple" />
-                <StatCard id="stat-layer-transport" icon="↔" value={stats?.layerCounts?.TRANSPORT} label="TRANSPORT Sites"       colorClass="amber"  />
+                <StatCard id="stat-total-alarms"    icon={<Bell size={18} />}          value={stats?.totalRaw}              label="Total Alarms"           colorClass="blue"   />
+                <StatCard id="stat-open-events"     icon={<Flame size={18} />}         value={stats?.openEvents}            label="Open Correlated Events" colorClass="red"    />
+                <StatCard id="stat-critical-sites"  icon={<TriangleAlert size={18} />} value={stats?.criticalSites}         label="Critical Sites"         colorClass="orange" />
+                <StatCard id="stat-critical-alarms" icon={<Bell size={18} />}          value={stats?.criticalAlarms}        label="Critical Alarms"        colorClass="red"    />
+                <StatCard id="stat-layer-ran"       icon={<Radio size={18} />}         value={stats?.layerCounts?.RAN}      label="RAN Sites"              colorClass="cyan"   />
+                <StatCard id="stat-layer-core"      icon={<Server size={18} />}        value={stats?.layerCounts?.CORE}     label="CORE Sites"             colorClass="purple" />
+                <StatCard id="stat-layer-transport" icon={<Network size={18} />}       value={stats?.layerCounts?.TRANSPORT} label="TRANSPORT Sites"        colorClass="amber"  />
               </div>
 
               {/* Charts Row 1 */}
@@ -383,8 +383,10 @@ export default function DashboardPage() {
               {/* Recent Open Events */}
               <div className="card">
                 <div className="card-header">
-                  <span className="card-title">🔥 Recent Open Correlated Events</span>
-                  <Link href="/alarms" className="btn btn-secondary btn-sm" id="view-all-events">View All →</Link>
+                  <span className="card-title"><Flame size={15} style={{ color: 'var(--critical)' }} /> Recent Open Correlated Events</span>
+                  <Link href="/alarms" className="btn btn-secondary btn-sm" id="view-all-events">
+                    <ChevronRight size={14} /> View All
+                  </Link>
                 </div>
 
                 {events.length === 0 ? (

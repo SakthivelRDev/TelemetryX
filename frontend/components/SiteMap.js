@@ -26,34 +26,34 @@ const LAYER_STYLE = {
 
 const TILE_LAYERS = {
   dark: {
-    label: '🌑 Dark',
+    label: 'Dark',
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap &copy; CARTO',
     maxZoom: 19,
     subdomains: 'abcd',
   },
   light: {
-    label: '☀️ Light',
+    label: 'Light',
     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap &copy; CARTO',
     maxZoom: 19,
     subdomains: 'abcd',
   },
   satellite: {
-    label: '🛰 Satellite',
+    label: 'Satellite',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: 'Tiles &copy; Esri',
     maxZoom: 18,
   },
   terrain: {
-    label: '🏔 Terrain',
+    label: 'Terrain',
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attribution: '&copy; OpenTopoMap',
     maxZoom: 17,
     subdomains: 'abc',
   },
   streets: {
-    label: '🗺 Streets',
+    label: 'Streets',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap',
     maxZoom: 19,
@@ -228,7 +228,8 @@ export default function SiteMap({ sites = [], onSiteClick }) {
         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Fill = layer · Border = status</div>
         <div style={{ fontSize: '0.65rem', marginBottom: '0.2rem' }}><span style={{ color: '#22d3ee' }}>━━</span> RAN → CORE</div>
         <div style={{ fontSize: '0.65rem', marginBottom: '0.2rem' }}><span style={{ color: '#f59e0b' }}>━━</span> CORE → TRANSPORT</div>
-        <div style={{ fontSize: '0.65rem' }}><span style={{ color: '#64748b' }}>━━</span> Backbone mesh</div>
+        <div style={{ fontSize: '0.65rem', marginBottom: '0.2rem' }}><span style={{ color: '#a855f7' }}>━━</span> Core Backbone</div>
+        <div style={{ fontSize: '0.65rem' }}><span style={{ color: '#64748b' }}>━━</span> Transport Mesh</div>
       </div>
 
       <MapContainer

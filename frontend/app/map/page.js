@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -10,6 +10,10 @@ import AppLayout from '../../components/AppLayout';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { detectUserRegion } from '../../lib/geoRegion';
+import {
+  Map as MapIcon, Radio, Server, Network, RefreshCw, X, MapPin,
+  BarChart2, AlertTriangle, CheckCircle, XCircle, ChevronRight, BellRing,
+} from 'lucide-react';
 
 // Client-only map (Leaflet needs window)
 const SiteMap = dynamic(
@@ -29,9 +33,9 @@ const STATUSES       = ['', 'CRITICAL', 'WARNING', 'OK'];
 const NETWORK_LAYERS = ['', 'RAN', 'CORE', 'TRANSPORT'];
 
 const LAYER_META = {
-  RAN:       { icon: '📡', color: '#22d3ee', desc: 'Radio Access Network – gNodeB, eNodeB, CU, DU, RRU' },
-  CORE:      { icon: '🖥',  color: '#a855f7', desc: 'Core Network – AMF, SMF, UPF, MME, SGW, PCF' },
-  TRANSPORT: { icon: '🔀', color: '#f59e0b', desc: 'Backhaul/Transport – Routers, Switches, OTN, Microwave' },
+  RAN:       { Icon: Radio,   color: '#22d3ee', desc: 'Radio Access Network – gNodeB, eNodeB, CU, DU, RRU' },
+  CORE:      { Icon: Server,  color: '#a855f7', desc: 'Core Network – AMF, SMF, UPF, MME, SGW, PCF' },
+  TRANSPORT: { Icon: Network, color: '#f59e0b', desc: 'Backhaul/Transport – Routers, Switches, OTN, Microwave' },
 };
 
 const STATUS_COLORS   = { CRITICAL: '#ef4444', WARNING: '#f59e0b', OK: '#10b981' };
@@ -43,7 +47,7 @@ const RULE_LABEL      = {
 };
 
 // ── Floating Alarms Modal ────────────────────────────────────────────────────
-function AlarmsModal({ site, alarms, loading, onClose }) {
+function AlarmsModal({ site, alarms, loading, onClose, onRefresh }) {
   if (!site) return null;
   return (
     <>
@@ -80,6 +84,19 @@ function AlarmsModal({ site, alarms, loading, onClose }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {onRefresh && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={onRefresh}
+                disabled={loading}
+                title="Refresh alarms list"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                id="modal-refresh-alarms"
+              >
+                <RefreshCw size={12} className={loading ? 'spin-continuous' : ''} />
+                {loading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            )}
             <a
               href={`/alarms?siteId=${site.id}`}
               className="btn btn-secondary btn-sm"
@@ -176,6 +193,7 @@ export default function MapPage() {
   const { user, canAccess }         = useAuth();
   const [sites, setSites]           = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [lastFetched, setLastFetched] = useState(null);
   const [region, setRegion]         = useState('');
@@ -183,7 +201,6 @@ export default function MapPage() {
   const [networkLayer, setNetworkLayer] = useState('');
   const [searchTerm, setSearchTerm]  = useState('');
   const [selected, setSelected]     = useState(null);
-
   // Geo-region auto-filter state
   const [geoRegion, setGeoRegion]         = useState(null);   // detected region name
   const [geoBannerOpen, setGeoBannerOpen] = useState(true);   // banner visibility
@@ -213,6 +230,41 @@ export default function MapPage() {
     }
   }, [region, status, networkLayer]);
 
+  // Manual refresh with spin animation (minimum 800ms spin feedback)
+  const handleManualRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const params = new URLSearchParams();
+      if (region)       params.set('region',       region);
+      if (status)       params.set('status',       status);
+      if (networkLayer) params.set('networkLayer', networkLayer);
+
+      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const promises = [
+        api.get(`/api/map/sites?${params}`),
+        delay(800)
+      ];
+
+      // If alarms modal is open, also refresh its alarms in parallel
+      if (modalSite) {
+        promises.push(api.get(`/api/alarms/correlated?siteId=${modalSite.id}&limit=20&status=OPEN`));
+      }
+
+      const results = await Promise.all(promises);
+      const sitesRes = results[0];
+      setSites(sitesRes.data.sites || []);
+      setLastFetched(new Date());
+
+      if (modalSite && results[2]) {
+        setModalAlarms(results[2].data.events || []);
+      }
+    } catch (err) {
+      console.error('Map refresh error:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [region, status, networkLayer, modalSite]);
+
   const openAlarmsModal = useCallback(async (site) => {
     setModalSite(site);
     setModalAlarms([]);
@@ -227,6 +279,19 @@ export default function MapPage() {
       setAlarmsLoading(false);
     }
   }, []);
+
+  const refreshModalAlarms = useCallback(async () => {
+    if (!modalSite) return;
+    setAlarmsLoading(true);
+    try {
+      const res = await api.get(`/api/alarms/correlated?siteId=${modalSite.id}&limit=20&status=OPEN`);
+      setModalAlarms(res.data.events || []);
+    } catch (err) {
+      console.error('Site alarms refresh error:', err);
+    } finally {
+      setAlarmsLoading(false);
+    }
+  }, [modalSite]);
 
   useEffect(() => { fetchSites(); }, [fetchSites]);
   useEffect(() => {
@@ -303,8 +368,19 @@ export default function MapPage() {
 
   useEffect(() => {
     if (!selected) return;
-    const stillVisible = displayedSites.some((s) => s.id === selected.id);
-    if (!stillVisible) setSelected(null);
+    const updated = displayedSites.find((s) => s.id === selected.id);
+    if (!updated) {
+      setSelected(null);
+    } else {
+      // Sync basic details from updated site object to avoid showing stale data in sidebar
+      if (
+        updated.status !== selected.status ||
+        updated.alarmCount !== selected.alarmCount ||
+        updated.topSeverity !== selected.topSeverity
+      ) {
+        setSelected(updated);
+      }
+    }
   }, [displayedSites, selected]);
 
   return (
@@ -325,7 +401,7 @@ export default function MapPage() {
             color: 'var(--text-primary)',
           }}>
             <span>
-              <span style={{ marginRight: 6 }}>📍</span>
+              <span style={{ marginRight: 6 }}><MapPin size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /></span>
               <strong>Region View active</strong>
               {' '}— showing sites in the{' '}
               <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>{geoRegion}</span>
@@ -361,7 +437,10 @@ export default function MapPage() {
         <div className="page-header">
           <div className="flex-between">
             <div>
-              <h1 className="page-title">🗺 Network Map</h1>
+              <h1 className="page-title">
+                <span className="page-title-icon"><MapIcon size={22} /></span>
+                Network Map
+              </h1>
               <p className="page-subtitle">
                 Live API data · auto-refresh 15s
                 {lastFetched && (
@@ -385,7 +464,7 @@ export default function MapPage() {
           {Object.entries(LAYER_META).map(([key, meta]) => (
             <div key={key} className="card" style={{ padding: '1rem', borderColor: `${meta.color}33`, cursor: 'pointer', borderWidth: networkLayer === key ? 2 : 1 }} onClick={() => setNetworkLayer(networkLayer === key ? '' : key)} id={`layer-filter-${key.toLowerCase()}`}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                <span style={{ fontSize: '1.2rem' }}>{meta.icon}</span>
+                <span style={{ color: meta.color, display: 'flex', alignItems: 'center' }}><meta.Icon size={18} strokeWidth={2} /></span>
                 <span style={{ fontWeight: 700, color: meta.color, fontSize: '0.9rem' }}>{key}</span>
                 <span style={{ marginLeft: 'auto', fontWeight: 800, fontSize: '1.2rem', color: meta.color }}>{layerCounts[key]}</span>
               </div>
@@ -431,9 +510,18 @@ export default function MapPage() {
           <select value={networkLayer} onChange={(e) => setNetworkLayer(e.target.value)} id="map-filter-layer">
             {NETWORK_LAYERS.map((l) => <option key={l} value={l}>{l || 'All Layers'}</option>)}
           </select>
-          <button className="btn btn-secondary btn-sm" onClick={fetchSites} id="map-refresh">↺ Refresh</button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            id="map-refresh"
+            title="Refresh map data"
+          >
+            <RefreshCw size={13} className={refreshing ? 'spin-continuous' : ''} />
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
           {networkLayer && (
-            <button className="btn btn-danger btn-sm" onClick={() => setNetworkLayer('')}>✕ Clear Layer Filter</button>
+            <button className="btn btn-danger btn-sm" onClick={() => setNetworkLayer('')}><X size={12} /> Clear Layer Filter</button>
           )}
         </div>
 
@@ -479,7 +567,9 @@ export default function MapPage() {
 
               {selected.networkLayer && LAYER_META[selected.networkLayer] && (
                 <div className="info-banner" style={{ marginBottom: '0.75rem', fontSize: '0.75rem' }}>
-                  <strong>{LAYER_META[selected.networkLayer].icon} {selected.networkLayer}:</strong><br />
+                  <strong>
+                    {(() => { const Meta = LAYER_META[selected.networkLayer]; return <Meta.Icon size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />; })()} {selected.networkLayer}:
+                  </strong><br />
                   {LAYER_META[selected.networkLayer].desc}
                 </div>
               )}
@@ -502,7 +592,7 @@ export default function MapPage() {
                 id={`map-view-alarms-${selected.id}`}
                 onClick={() => openAlarmsModal(selected)}
               >
-                🔔 View Alarms
+                <BellRing size={15} /> View Alarms
               </button>
               <a
                 href={`/alarms?siteId=${selected.id}`}
@@ -510,7 +600,7 @@ export default function MapPage() {
                 style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
                 id={`map-open-alarms-page-${selected.id}`}
               >
-                ↗ Open in Alarms Page
+                <ChevronRight size={14} /> Open in Alarms Page
               </a>
             </div>
           )}
@@ -686,6 +776,7 @@ export default function MapPage() {
           alarms={modalAlarms}
           loading={alarmsLoading}
           onClose={() => { setModalSite(null); setModalAlarms(null); }}
+          onRefresh={refreshModalAlarms}
         />
       )}
     </AppLayout>

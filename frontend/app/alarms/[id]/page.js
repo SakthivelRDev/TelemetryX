@@ -7,6 +7,7 @@ import AppLayout from '../../../components/AppLayout';
 import AlarmTable from '../../../components/AlarmTable';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../lib/api';
+import { ChevronLeft, Zap, MapPin, Building2, Link2, ChevronDown, ChevronUp, Lock, Bot, RefreshCw } from 'lucide-react';
 
 const RULE_LABELS = {
   RULE_1_SAME_SITE_DEVICE:   { label: 'Rule 1 – Same Site & Device within 5 minutes', icon: '📍', color: 'var(--accent-blue)' },
@@ -429,12 +430,13 @@ export default function AlarmDetailPage() {
         {/* Back + Header */}
         <div className="page-header">
           <Link href="/alarms" className="btn btn-secondary btn-sm" style={{ marginBottom: '1rem' }} id="back-to-alarms">
-            ← Back to Alarms
+            <ChevronLeft size={14} /> Back to Alarms
           </Link>
           <div className="flex-between">
             <div>
               <h1 className="page-title">
-                ⚡ Correlated Event
+                <span className="page-title-icon"><Zap size={22} /></span>
+                Correlated Event
               </h1>
               <p className="page-subtitle mono" style={{ color: 'var(--accent-cyan)', fontSize: '0.9rem' }}>{event.groupKey}</p>
             </div>
@@ -493,7 +495,7 @@ export default function AlarmDetailPage() {
             <div className="card-header">
               <span className="card-title">📋 Raw Alarms ({event.rawAlarms?.length || 0})</span>
               <button className="btn btn-secondary btn-sm" onClick={() => setExpanded((v) => !v)} id="toggle-raw-alarms">
-                {expanded ? '▲ Collapse' : '▼ Expand'}
+                {expanded ? <><ChevronUp size={13} /> Collapse</> : <><ChevronDown size={13} /> Expand</>}
               </button>
             </div>
             {expanded && (

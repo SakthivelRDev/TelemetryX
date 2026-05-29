@@ -6,6 +6,7 @@ import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import CorrelatedEventCard from '../../components/CorrelatedEventCard';
 import api from '../../lib/api';
+import { BellRing, Zap, MapPin, Building2, ChevronRight, ChevronLeft } from 'lucide-react';
 
 const SEVERITIES     = ['', 'CRITICAL', 'MEDIUM', 'LOW'];
 const STATUSES       = ['', 'OPEN', 'ACKNOWLEDGED', 'CLOSED'];
@@ -66,7 +67,10 @@ export default function AlarmsPage() {
         <div className="page-header">
           <div className="flex-between">
             <div>
-              <h1 className="page-title">◉ Correlated Alarms</h1>
+              <h1 className="page-title">
+                <span className="page-title-icon"><BellRing size={22} /></span>
+                Correlated Alarms
+              </h1>
               <p className="page-subtitle">{total} events found · Click to drill-down</p>
             </div>
             {canAccess('ALARM', 'canWrite') && (
@@ -74,9 +78,9 @@ export default function AlarmsPage() {
                 className="btn btn-primary btn-sm"
                 onClick={triggerIngest}
                 id="trigger-ingest"
-                title="Manually fire one ingestion cycle: generate mock alarms → normalize → correlate → update site statuses."
+                title="Manually fire one ingestion cycle."
               >
-                ⚡ Trigger Ingest
+                <Zap size={13} /> Trigger Ingest
               </button>
             )}
           </div>
@@ -210,9 +214,13 @@ export default function AlarmsPage() {
           {/* Pagination */}
           {total > 20 && (
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1.25rem' }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} id="prev-page">← Prev</button>
-              <span style={{ color: 'var(--text-muted)', lineHeight: '2rem', fontSize: '0.85rem' }}>Page {page}</span>
-              <button className="btn btn-secondary btn-sm" onClick={() => setPage((p) => p + 1)} disabled={events.length < 20} id="next-page">Next →</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} id="prev-page">
+                <ChevronLeft size={13} /> Prev
+              </button>
+              <span style={{ color: 'var(--text-secondary)', lineHeight: '2rem', fontSize: '0.85rem', fontWeight: 600 }}>Page {page}</span>
+              <button className="btn btn-secondary btn-sm" onClick={() => setPage((p) => p + 1)} disabled={events.length < 20} id="next-page">
+                Next <ChevronRight size={13} />
+              </button>
             </div>
           )}
         </div>

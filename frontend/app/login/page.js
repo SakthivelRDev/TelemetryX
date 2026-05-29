@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { Activity, Sun, Moon, Eye, EyeOff, ChevronRight, LogIn } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail]         = useState('');
@@ -48,12 +49,18 @@ export default function LoginPage() {
         style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', zIndex: 10 }}
         title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       >
-        {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+        {theme === 'dark'
+          ? <><Sun size={14} /> Light</>
+          : <><Moon size={14} /> Dark</>
+        }
       </button>
 
       <div className="login-card fade-in">
         <div className="login-logo">
-          <div className="login-logo-text">⬡ App360</div>
+          <div className="login-logo-icon">
+            <Activity size={24} />
+          </div>
+          <div className="login-logo-text">App360</div>
           <div className="login-subtitle">Network Operations Center</div>
         </div>
 
@@ -92,13 +99,14 @@ export default function LoginPage() {
                 id="toggle-password-visibility"
                 title={showPwd ? 'Hide password' : 'Show password'}
               >
-                {showPwd ? '🙈' : '👁'}
+                {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading} id="login-submit" style={{ width: '100%', justifyContent: 'center', padding: '0.75rem', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-            {loading ? 'Signing in…' : 'Sign In →'}
+          <button type="submit" className="btn btn-primary" disabled={loading} id="login-submit" style={{ width: '100%', justifyContent: 'center', padding: '0.7rem', fontSize: '0.9rem', marginBottom: '1.5rem', fontWeight: 700 }}>
+            <LogIn size={16} />
+            {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
 

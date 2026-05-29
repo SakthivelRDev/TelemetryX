@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import RoleGuard from '../../components/RoleGuard';
 import AppLayout from '../../components/AppLayout';
 import api from '../../lib/api';
+import { Plug, Plus, X, Zap, Database, RefreshCw, Filter, ArrowRight, Cpu, Monitor, Trash2 } from 'lucide-react';
 
 export default function SourcesPage() {
   const { canAccess } = useAuth();
@@ -79,12 +80,15 @@ export default function SourcesPage() {
         <div className="page-header">
           <div className="flex-between">
             <div>
-              <h1 className="page-title">⚡ API Sources</h1>
+              <h1 className="page-title">
+                <span className="page-title-icon"><Plug size={22} /></span>
+                API Sources
+              </h1>
               <p className="page-subtitle">Manage data ingestion sources · Monitor polling status</p>
             </div>
             {canAccess('API', 'canWrite') && (
               <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)} id="add-source-btn">
-                {showForm ? '✕ Cancel' : '+ Add Source'}
+                {showForm ? <><X size={14} /> Cancel</> : <><Plus size={14} /> Add Source</>}
               </button>
             )}
           </div>
@@ -199,11 +203,13 @@ export default function SourcesPage() {
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           {canAccess('API', 'canWrite') && (
                             <button className="btn btn-primary btn-sm" onClick={() => handlePoll(src)} disabled={polling === src.id} id={`poll-${src.id}`}>
-                              {polling === src.id ? 'Polling…' : '⚡ Poll Now'}
+                              {polling === src.id ? <><RefreshCw size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> Polling…</> : <><Zap size={12} /> Poll Now</>}
                             </button>
                           )}
                           {canAccess('API', 'canDelete') && (
-                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(src.id, src.name)} id={`delete-source-${src.id}`}>Delete</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(src.id, src.name)} id={`delete-source-${src.id}`}>
+                              <Trash2 size={12} /> Delete
+                            </button>
                           )}
                         </div>
                       </td>

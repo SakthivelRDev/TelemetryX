@@ -7,6 +7,7 @@ import PermissionsEditor from '../../components/PermissionsEditor';
 import UserPermissionsEditor from '../../components/UserPermissionsEditor';
 import UserForm from '../../components/UserForm';
 import api from '../../lib/api';
+import { Users, UserPlus, Lock, UserCog, Edit, Trash2, ChevronRight, AlertCircle } from 'lucide-react';
 
 export default function UsersPage() {
   const { user, refreshSession } = useAuth();
@@ -119,22 +120,31 @@ export default function UsersPage() {
         <div className="page-header">
           <div className="flex-between">
             <div>
-              <h1 className="page-title">👥 User Management</h1>
+              <h1 className="page-title">
+                <span className="page-title-icon"><Users size={22} /></span>
+                User Management
+              </h1>
               <p className="page-subtitle">Manage users, roles, and module permissions</p>
             </div>
             {tab === 'users' && user?.role === 'ADMIN' && (
               <button className="btn btn-primary" onClick={() => { setShowForm(true); setEditUser(null); setFormError(''); }} id="add-user-btn">
-                + Add User
+                <UserPlus size={15} /> Add User
               </button>
             )}
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          <button className={`btn ${tab === 'users'       ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('users')}       id="tab-users">Users</button>
-          <button className={`btn ${tab === 'permissions' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('permissions')} id="tab-permissions">Permissions Matrix</button>
-          <button className={`btn ${tab === 'user-perms'  ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('user-perms')}  id="tab-user-perms">User Permissions</button>
+        <div className="tab-bar">
+          <button className={`tab-btn ${tab === 'users'       ? 'active' : ''}`} onClick={() => setTab('users')}       id="tab-users">
+            <Users size={14} /> Users
+          </button>
+          <button className={`tab-btn ${tab === 'permissions' ? 'active' : ''}`} onClick={() => setTab('permissions')} id="tab-permissions">
+            <Lock size={14} /> Permissions Matrix
+          </button>
+          <button className={`tab-btn ${tab === 'user-perms'  ? 'active' : ''}`} onClick={() => setTab('user-perms')}  id="tab-user-perms">
+            <UserCog size={14} /> User Permissions
+          </button>
         </div>
 
         {loading ? (
@@ -178,7 +188,9 @@ export default function UsersPage() {
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             {isAdmin ? (
                               <>
-                                <button className="btn btn-secondary btn-sm" onClick={() => { setEditUser(u); setShowForm(false); setFormError(''); }} id={`edit-user-${u.id}`}>Edit</button>
+                            <button className="btn btn-secondary btn-sm" onClick={() => { setEditUser(u); setShowForm(false); setFormError(''); }} id={`edit-user-${u.id}`}>
+                              <Edit size={12} /> Edit
+                            </button>
                                 {deleteConfirm === u.id ? (
                                   <>
                                     <button className="btn btn-danger btn-sm" onClick={() => handleDelete(u.id)} id={`confirm-delete-${u.id}`}>Confirm</button>
@@ -204,7 +216,7 @@ export default function UsersPage() {
         ) : tab === 'permissions' ? (
           <div className="card">
             <div className="card-header">
-              <span className="card-title">🔐 RBAC Permissions Matrix</span>
+              <span className="card-title"><Lock size={15} /> RBAC Permissions Matrix</span>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Toggle permissions per role × module</span>
             </div>
             <div className="info-banner">
